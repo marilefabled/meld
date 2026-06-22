@@ -24,27 +24,28 @@ const CLASS_CONFIGS: Record<PlayerClass, { hp: number; deck: string[] }> = {
     deck: [
       'strike', 'strike', 'strike', 'strike',
       'slash', 'slash',
-      'fireball',
-      'block', 'block', 'block', 'block',
+      'overload', 'overload',
+      'block', 'block', 'block',
       'barrier', 'barrier',
     ],
   },
   mage: {
     hp: 50,
     deck: [
-      'strike', 'strike',
+      'strike',
       'slash',
       'fireball', 'fireball', 'fireball', 'fireball',
+      'overload', 'overload',
       'block', 'block',
-      'barrier', 'barrier', 'barrier', 'barrier',
+      'barrier', 'barrier', 'barrier',
     ],
   },
   rogue: {
     hp: 60,
     deck: [
       'strike', 'strike',
-      'slash', 'slash', 'slash', 'slash', 'slash',
-      'fireball',
+      'slash', 'slash', 'slash', 'slash',
+      'overload', 'overload',
       'block', 'block', 'block',
       'barrier', 'barrier',
     ],
@@ -669,6 +670,13 @@ export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom 
                       : tierIIIStatus.kind === 'vulnerable' ? '💔 BLEED'
                       : '💀 WEAKENED'
           flash(label, 0.7)
+        }
+        if (card.tier === 2 && def.tierIISelfDamage) {
+          const selfDmg = def.tierIISelfDamage
+          playerStats.modify('hp', -selfDmg)
+          const pos = player.group.position.clone(); pos.y += 2.4
+          showFloatingNumber(pos, `-${selfDmg}`, '#f87171')
+          updateHUD()
         }
       },
     })

@@ -8,6 +8,7 @@ export interface CardDef {
   name: string; icon: string; type: 'attack' | 'defend' | 'heal'
   value: number; cost: number; desc(val: number, tier?: number): string; color: number
   tierIIIStatus?: StatusEffect
+  tierIISelfDamage?: number
 }
 
 export const CARD_DATA: Record<string, CardDef> = {
@@ -27,6 +28,12 @@ export const CARD_DATA: Record<string, CardDef> = {
     desc: (v, t) => t === 3 ? `Deal ${v} dmg · bleed 2` : `Deal ${v} dmg`,
     color: 0xa855f7,
     tierIIIStatus: { kind: 'vulnerable', stacks: 2, target: 'enemy' },
+  },
+  overload: {
+    name: 'Overload', icon: '💥', type: 'attack', value: 5, cost: 1,
+    desc: (v, t) => t === 2 ? `Deal ${v} dmg · 3 self` : `Deal ${v} dmg`,
+    color: 0xe11d48,
+    tierIISelfDamage: 3,
   },
   block: {
     name: 'Absorb', icon: '🔮', type: 'defend', value: 2, cost: 1,
