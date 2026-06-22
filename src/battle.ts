@@ -340,6 +340,9 @@ export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom 
     pos.y += 0.4
     showFloatingNumber(pos, `${def.name} ${TIER_ROMAN[newTier]}  ${oldVal}→${newVal}  ↓ DISC`, '#fcd34d')
 
+    if (deck.drawPile.length === 0) deck.reshuffle()
+    deck.draw(Math.min(1, deck.drawPile.length))
+
     renderHand(true)
   }
 
