@@ -30,18 +30,13 @@ export const CARD_DATA: Record<string, CardDef> = {
   },
   block: {
     name: 'Absorb', icon: '🔮', type: 'defend', value: 2, cost: 1,
-    desc: v => `+${v} absorb · +${v} HP`,
+    desc: (v, t) => t && t >= 2 ? `+${v} absorb · +${v} HP` : `+${v} absorb`,
     color: 0x818cf8,
   },
   barrier: {
     name: 'Shell', icon: '💠', type: 'defend', value: 4, cost: 2,
-    desc: v => `+${v} absorb · +${v} HP`,
+    desc: (v, t) => t && t >= 2 ? `+${v} absorb · +${v} HP` : `+${v} absorb`,
     color: 0x6366f1,
-  },
-  heal: {
-    name: 'Heal', icon: '💚', type: 'heal', value: 7, cost: 1,
-    desc: v => `Restore ${v} HP`,
-    color: 0x22c55e,
   },
 }
 

@@ -25,9 +25,8 @@ const CLASS_CONFIGS: Record<PlayerClass, { hp: number; deck: string[] }> = {
       'strike', 'strike', 'strike', 'strike',
       'slash', 'slash',
       'fireball',
-      'block', 'block', 'block',
-      'barrier',
-      'heal', 'heal',
+      'block', 'block', 'block', 'block',
+      'barrier', 'barrier',
     ],
   },
   mage: {
@@ -36,8 +35,8 @@ const CLASS_CONFIGS: Record<PlayerClass, { hp: number; deck: string[] }> = {
       'strike', 'strike',
       'slash',
       'fireball', 'fireball', 'fireball', 'fireball',
-      'barrier', 'barrier',
-      'heal', 'heal', 'heal', 'heal',
+      'block', 'block',
+      'barrier', 'barrier', 'barrier', 'barrier',
     ],
   },
   rogue: {
@@ -46,9 +45,8 @@ const CLASS_CONFIGS: Record<PlayerClass, { hp: number; deck: string[] }> = {
       'strike', 'strike',
       'slash', 'slash', 'slash', 'slash', 'slash',
       'fireball',
-      'block', 'block',
-      'barrier',
-      'heal', 'heal',
+      'block', 'block', 'block',
+      'barrier', 'barrier',
     ],
   },
 }
@@ -573,12 +571,7 @@ export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom 
 
   function dealAbsorb(target: StatBlock, amount: number, worldPos?: THREE.Vector3) {
     target.modify('absorb', amount)
-    target.modify('hp', amount)
-    if (worldPos) {
-      showFloatingNumber(worldPos, `✦+${amount}`, '#a5b4fc')
-      const healPos = worldPos.clone(); healPos.x += 0.4
-      showFloatingNumber(healPos, `+${amount}`, '#4ade80')
-    }
+    if (worldPos) showFloatingNumber(worldPos, `✦+${amount}`, '#a5b4fc')
   }
 
   // ── Action resolver ──────────────────────────────────────────────────────
@@ -593,10 +586,11 @@ export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom 
     color:  number,
     done:   () => void,
     opts: {
-      safety:     { cancel(): void }
-      trauma?:    number
-      postDelay?: number
-      onLand?:    () => void
+      safety:      { cancel(): void }
+      trauma?:     number
+      postDelay?:  number
+      onLand?:     () => void
+      healAmount?: number
     },
   ) {
     const { safety, trauma = 0.25, postDelay = 0.22, onLand } = opts
@@ -621,6 +615,8 @@ export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom 
     } else if (type === 'defend') {
       animBlock(actor, () => {
         dealAbsorb(actorStats, value, actorHdPos)
+        const healAmt = opts.healAmount ?? 0
+        if (healAmt > 0) dealHeal(actorStats, healAmt, actorHdPos)
         onLand?.()
         updateHUD()
         timer.after(0.13, commit)
@@ -656,8 +652,9 @@ export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom 
 
     executeAction(player, playerStats, enemy, enemyStats, def.type, val, def.color, done, {
       safety,
-      trauma:    0.3,
-      postDelay: 0.22,
+      trauma:     0.3,
+      postDelay:  0.22,
+      healAmount: def.type === 'defend' ? (card.tier >= 2 ? val : 0) : undefined,
       onLand: () => {
         if (def.type === 'attack') sfx.hit()
         else if (def.type === 'defend') sfx.shield()
