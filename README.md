@@ -24,6 +24,7 @@ Three.js + TypeScript + Vite. No framework. Runs in the browser, no install.
 ```bash
 npm install
 npm run dev        # localhost:3000
+npm test           # vitest unit tests
 npm run typecheck  # tsc --noEmit
 npm run build      # production build → dist/
 ```

@@ -7,140 +7,13 @@ import { createGameState } from './engine/gameState.js'
 import { createParticles } from './engine/particles.js'
 import { createDebugOverlay } from './engine/debugOverlay.js'
 import { createRegistry } from './engine/registry.js'
-
-// ── Card data ─────────────────────────────────────────────────────────────
-interface CardDef {
-  name: string; icon: string; type: 'attack' | 'defend' | 'heal'
-  value: number; cost: number; desc(val: number): string; color: number
-}
-
-const CARD_DATA: Record<string, CardDef> = {
-  strike:   { name: 'Strike',   icon: '⚔️',  type: 'attack', value: 6,  cost: 1, desc: v => `Deal ${v} dmg`,              color: 0xef4444 },
-  fireball: { name: 'Fireball', icon: '🔥',  type: 'attack', value: 9,  cost: 2, desc: v => `Deal ${v} dmg`,              color: 0xf97316 },
-  slash:    { name: 'Slash',    icon: '🗡️',  type: 'attack', value: 4,  cost: 1, desc: v => `Deal ${v} dmg`,              color: 0xa855f7 },
-  block:    { name: 'Absorb',   icon: '🔮',  type: 'defend', value: 2,  cost: 1, desc: v => `+${v} absorb · +${v} HP`,    color: 0x818cf8 },
-  barrier:  { name: 'Shell',    icon: '💠',  type: 'defend', value: 4,  cost: 2, desc: v => `+${v} absorb · +${v} HP`,    color: 0x6366f1 },
-  heal:     { name: 'Heal',     icon: '💚',  type: 'heal',   value: 7,  cost: 1, desc: v => `Restore ${v} HP`,            color: 0x22c55e },
-}
+import { CARD_DATA, TIER_ROMAN, MAX_TIER, makeCard, scaledValue, type CardDef, type GameCard } from './data/cards.js'
+import { ENCOUNTERS, type EnemyMove } from './data/encounters.js'
+import { buildUnit, type Unit } from './view/unit.js'
+import { sfx } from './sfx.js'
 
 const cards = createRegistry<CardDef>('cards')
 cards.loadAll(CARD_DATA)
-
-const TIER_ROMAN = ['', 'I', 'II', 'III'] as const
-const MAX_TIER = 3
-
-interface GameCard { id: string; cardId: string; tier: number }
-let uidCounter = 0
-function makeCard(cardId: string, tier = 1): GameCard {
-  return { id: `${cardId}_${tier}_${uidCounter++}`, cardId, tier }
-}
-
-function scaledValue(def: CardDef, tier: number): number {
-  const mult = [1, 1, 2.2, 4.5][tier] ?? 1
-  return Math.round(def.value * mult)
-}
-
-// ── Build a unit mesh ─────────────────────────────────────────────────────
-function buildUnit(color: number, accent: number) {
-  const group = new THREE.Group()
-
-  const bodyGeo = new THREE.BoxGeometry(0.75, 1.0, 0.52)
-  const bodyMat = new THREE.MeshStandardMaterial({ color, roughness: 0.4, metalness: 0.3 })
-  const body = new THREE.Mesh(bodyGeo, bodyMat)
-  body.position.y = 1.05
-  body.castShadow = true
-  group.add(body)
-
-  const headGeo = new THREE.BoxGeometry(0.55, 0.5, 0.5)
-  const headMat = new THREE.MeshStandardMaterial({ color: accent, roughness: 0.3, metalness: 0.4 })
-  const head = new THREE.Mesh(headGeo, headMat)
-  head.position.y = 1.87
-  head.castShadow = true
-  group.add(head)
-
-  const eyeGeo = new THREE.BoxGeometry(0.1, 0.1, 0.06)
-  const eyeMat = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 1.8 })
-  const eyeL = new THREE.Mesh(eyeGeo, eyeMat)
-  eyeL.position.set(-0.13, 1.91, 0.26)
-  group.add(eyeL)
-  const eyeR = eyeL.clone()
-  eyeR.position.x = 0.13
-  group.add(eyeR)
-
-  const armGeo  = new THREE.BoxGeometry(0.22, 0.62, 0.26)
-  const fistGeo = new THREE.BoxGeometry(0.28, 0.22, 0.3)
-
-  const armL = new THREE.Group()
-  armL.position.set(-0.52, 1.52, 0)
-  const armLMesh = new THREE.Mesh(armGeo, bodyMat)
-  armLMesh.position.y = -0.33; armLMesh.castShadow = true
-  armL.add(armLMesh)
-  const fistLMesh = new THREE.Mesh(fistGeo, bodyMat)
-  fistLMesh.position.y = -0.68
-  armL.add(fistLMesh)
-  group.add(armL)
-
-  const armR = new THREE.Group()
-  armR.position.set(0.52, 1.52, 0)
-  const armRMesh = new THREE.Mesh(armGeo, bodyMat)
-  armRMesh.position.y = -0.33; armRMesh.castShadow = true
-  armR.add(armRMesh)
-  const fistRMesh = new THREE.Mesh(fistGeo, bodyMat)
-  fistRMesh.position.y = -0.68
-  armR.add(fistRMesh)
-  group.add(armR)
-
-  const legGeo = new THREE.BoxGeometry(0.27, 0.56, 0.3)
-  const legMat = new THREE.MeshStandardMaterial({ color: 0x1a1a2e, roughness: 0.7 })
-
-  const legL = new THREE.Group()
-  legL.position.set(-0.18, 0.55, 0)
-  const legLMesh = new THREE.Mesh(legGeo, legMat)
-  legLMesh.position.y = -0.28; legLMesh.castShadow = true
-  legL.add(legLMesh)
-  group.add(legL)
-
-  const legR = new THREE.Group()
-  legR.position.set(0.18, 0.55, 0)
-  const legRMesh = legLMesh.clone()
-  legRMesh.position.y = -0.28
-  legR.add(legRMesh)
-  group.add(legR)
-
-  return { group, body, head, armL, armR, legL, legR }
-}
-type Unit = ReturnType<typeof buildUnit>
-
-// ── Encounter roster ─────────────────────────────────────────────────────
-interface EnemyMove { name: string; type: 'attack' | 'defend' | 'heal'; value: number; color: number; label: string }
-interface EnemyDef  { name: string; bodyColor: number; accentColor: number; hp: number; moves: EnemyMove[] }
-
-const ENCOUNTERS: EnemyDef[] = [
-  {
-    name: 'Whelp', bodyColor: 0xb45309, accentColor: 0xd97706, hp: 35,
-    moves: [
-      { name: 'Scratch', type: 'attack', value: 4, color: 0xef4444, label: '🐾 Scratch · 4 dmg' },
-      { name: 'Claw',    type: 'attack', value: 6, color: 0xdc2626, label: '⚔️ Claw · 6 dmg' },
-    ],
-  },
-  {
-    name: 'Brute', bodyColor: 0x7f1d1d, accentColor: 0xb91c1c, hp: 70,
-    moves: [
-      { name: 'Slam',  type: 'attack', value: 8,  color: 0xef4444, label: '💥 Slam · 8 dmg' },
-      { name: 'Bite',  type: 'attack', value: 11, color: 0xdc2626, label: '🦷 Bite · 11 dmg' },
-      { name: 'Guard', type: 'defend', value: 3,  color: 0x6366f1, label: '🔮 Guard · +3 absorb' },
-    ],
-  },
-  {
-    name: 'CORE', bodyColor: 0x1e1b4b, accentColor: 0x4338ca, hp: 120,
-    moves: [
-      { name: 'Crush',    type: 'attack', value: 10, color: 0xef4444, label: '⚡ Crush · 10 dmg' },
-      { name: 'Surge',    type: 'attack', value: 15, color: 0xdc2626, label: '💀 Surge · 15 dmg' },
-      { name: 'Fortify',  type: 'defend', value: 5,  color: 0x6366f1, label: '🔮 Fortify · +5 absorb' },
-      { name: 'Recharge', type: 'heal',   value: 8,  color: 0x22c55e, label: '💚 Recharge · +8 HP' },
-    ],
-  },
-]
 
 // ── Game entry ────────────────────────────────────────────────────────────
 export function startBattle() {
@@ -392,6 +265,7 @@ export function startBattle() {
     deck.play(target.id, false)
     deck.shelve(makeCard(card.cardId, newTier))
 
+    sfx.meld()
     const pos = player.group.position.clone()
     pos.y += 2.4
     vfx.burst(pos, 24, { speed: 2.0, spread: 0.9, up: 1.4, life: 0.7, size: 0.15, color: 0xf59e0b })
@@ -566,19 +440,19 @@ export function startBattle() {
     })
     timer.tween(0.32, p => {
       unit.body.position.y = 1.05 + Math.sin(p * Math.PI) * 0.2
-      ;(unit.body.material as THREE.MeshStandardMaterial).emissive.setHex(0x22c55e)
-      ;(unit.body.material as THREE.MeshStandardMaterial).emissiveIntensity = Math.sin(p * Math.PI) * 1.5
+      unit.body.material.emissive.setHex(0x22c55e)
+      unit.body.material.emissiveIntensity = Math.sin(p * Math.PI) * 1.5
     }, {
       onComplete: () => {
         stream.cancel()
-        ;(unit.body.material as THREE.MeshStandardMaterial).emissiveIntensity = 0
+        unit.body.material.emissiveIntensity = 0
         onDone()
       }
     })
   }
 
   function animHit(unit: Unit) {
-    const mat = unit.body.material as THREE.MeshStandardMaterial
+    const mat = unit.body.material
     mat.emissive.setHex(0xff2200); mat.emissiveIntensity = 2.5
     timer.tween(0.24, p => { mat.emissiveIntensity = 2.5 * (1 - p) }, {
       onComplete: () => { mat.emissiveIntensity = 0 }
@@ -634,6 +508,57 @@ export function startBattle() {
     }
   }
 
+  // ── Action resolver ──────────────────────────────────────────────────────
+
+  function executeAction(
+    actor:       Unit,
+    actorStats:  StatBlock,
+    target:      Unit,
+    targetStats: StatBlock,
+    type:   'attack' | 'defend' | 'heal',
+    value:  number,
+    color:  number,
+    done:   () => void,
+    opts: {
+      safety:     { cancel(): void }
+      trauma?:    number
+      postDelay?: number
+      onLand?:    () => void
+    },
+  ) {
+    const { safety, trauma = 0.25, postDelay = 0.22, onLand } = opts
+    const commit = () => { safety.cancel(); done() }
+    const targetPos  = target.group.position.clone(); targetPos.y += 1
+    const actorHdPos = actor.group.position.clone();  actorHdPos.y += 2.2
+    const targetHdPos = target.group.position.clone(); targetHdPos.y += 2.2
+
+    if (type === 'attack') {
+      ;(value >= 8 ? animFireball : animStrike)(actor, targetPos, () => {
+        dealDamage(targetStats, value, targetHdPos)
+        shake.addTrauma(trauma)
+        animHit(target)
+        vfx.burst(targetPos, 12, { speed: 1.8, spread: 0.8, up: 0.3, life: 0.4, size: 0.12, color })
+        onLand?.()
+        updateHUD()
+        timer.after(postDelay, commit)
+      })
+    } else if (type === 'defend') {
+      animBlock(actor, () => {
+        dealAbsorb(actorStats, value, actorHdPos)
+        onLand?.()
+        updateHUD()
+        timer.after(0.13, commit)
+      })
+    } else {
+      animHeal(actor, () => {
+        dealHeal(actorStats, value, actorHdPos)
+        onLand?.()
+        updateHUD()
+        timer.after(0.13, commit)
+      })
+    }
+  }
+
   // ── Play a card ──────────────────────────────────────────────────────────
 
   function playCard(card: GameCard) {
@@ -646,44 +571,19 @@ export function startBattle() {
     deck.play(card.id, true)
     setAnimating(true)
     renderHand()
+    sfx.cardPlay()
 
-    const targetPos = enemy.group.position.clone()
-    targetPos.y += 1
-
-    function done() {
-      setAnimating(false)
-      renderHand()
-      checkDeath()
-    }
-
+    function done() { setAnimating(false); renderHand(); checkDeath() }
     const safety = timer.after(3.0, () => { if (_animating) done() })
 
-    const enemyHeadPos = enemy.group.position.clone(); enemyHeadPos.y += 2.2
-    const playerHeadPos = player.group.position.clone(); playerHeadPos.y += 2.2
-
-    if (def.type === 'attack') {
-      const anim = val >= 8 ? animFireball : animStrike
-      anim(player, targetPos, () => {
-        dealDamage(enemyStats, val, enemyHeadPos)
-        shake.addTrauma(0.3)
-        animHit(enemy)
-        vfx.burst(targetPos, 12, { speed: 1.8, spread: 0.8, up: 0.3, life: 0.4, size: 0.12, color: def.color })
-        updateHUD()
-        timer.after(0.22, () => { safety.cancel(); done() })
-      })
-    } else if (def.type === 'defend') {
-      animBlock(player, () => {
-        dealAbsorb(playerStats, val, playerHeadPos)
-        updateHUD()
-        timer.after(0.12, () => { safety.cancel(); done() })
-      })
-    } else {
-      animHeal(player, () => {
-        dealHeal(playerStats, val, playerHeadPos)
-        updateHUD()
-        timer.after(0.12, () => { safety.cancel(); done() })
-      })
-    }
+    executeAction(player, playerStats, enemy, enemyStats, def.type, val, def.color, done, {
+      safety,
+      trauma:    0.3,
+      postDelay: 0.22,
+      onLand:    def.type === 'attack' ? () => sfx.hit()
+               : def.type === 'defend' ? () => sfx.shield()
+               : () => sfx.heal(),
+    })
   }
 
   // ── Encounter ────────────────────────────────────────────────────────────
@@ -697,9 +597,9 @@ export function startBattle() {
     enemyStats.setMax('hp', def.hp)
     enemyStats.set('hp', def.hp)
     enemyStats.set('absorb', 0)
-    ;(enemy.body.material as THREE.MeshStandardMaterial).emissiveIntensity = 0
-    ;(enemy.body.material as THREE.MeshStandardMaterial).color.setHex(def.bodyColor)
-    ;(enemy.head.material as THREE.MeshStandardMaterial).color.setHex(def.accentColor)
+    enemy.body.material.emissiveIntensity = 0
+    enemy.body.material.color.setHex(def.bodyColor)
+    enemy.head.material.color.setHex(def.accentColor)
     enemyRingMat.color.setHex(def.bodyColor)
     enemyFloorLight.color.setHex(def.bodyColor)
 
@@ -727,8 +627,6 @@ export function startBattle() {
 
     timer.after(0.4, () => {
       const move = enemyNextMove
-      const targetPos = player.group.position.clone()
-      targetPos.y += 1
 
       function done() {
         setAnimating(false)
@@ -738,36 +636,25 @@ export function startBattle() {
 
       const safety = timer.after(3.0, () => { if (_animating) done() })
 
-      const playerHeadPos = player.group.position.clone(); playerHeadPos.y += 2.2
-      const enemyHeadPos  = enemy.group.position.clone();  enemyHeadPos.y += 2.2
+      const onLand = move.type === 'attack'
+        ? () => {
+            sfx.enemyHit()
+            $hitVignette.classList.remove('flash')
+            void $hitVignette.offsetWidth
+            $hitVignette.classList.add('flash')
+            flash(`${move.name}!`, 0.6)
+          }
+        : () => {
+            move.type === 'heal' ? sfx.heal() : sfx.shield()
+            flash(`${move.name}! ✦`, 0.5)
+          }
 
-      if (move.type === 'attack') {
-        const anim = move.value >= 7 ? animFireball : animStrike
-        anim(enemy, targetPos, () => {
-          dealDamage(playerStats, move.value, playerHeadPos)
-          shake.addTrauma(0.2 + move.value / 28)
-          animHit(player)
-          $hitVignette.classList.remove('flash'); void $hitVignette.offsetWidth; $hitVignette.classList.add('flash')
-          vfx.burst(targetPos, 10, { speed: 1.5, spread: 0.7, up: 0.3, life: 0.4, size: 0.11, color: move.color })
-          flash(`${move.name}!`, 0.6)
-          updateHUD()
-          timer.after(0.28, () => { safety.cancel(); done() })
-        })
-      } else if (move.type === 'heal') {
-        animHeal(enemy, () => {
-          dealHeal(enemyStats, move.value, enemyHeadPos)
-          flash(`${move.name}! ✦`, 0.5)
-          updateHUD()
-          timer.after(0.12, () => { safety.cancel(); done() })
-        })
-      } else {
-        animBlock(enemy, () => {
-          dealAbsorb(enemyStats, move.value, enemyHeadPos)
-          flash(`${move.name}! ✦`, 0.5)
-          updateHUD()
-          timer.after(0.18, () => { safety.cancel(); done() })
-        })
-      }
+      executeAction(enemy, enemyStats, player, playerStats, move.type, move.value, move.color, done, {
+        safety,
+        trauma:    0.2 + move.value / 28,
+        postDelay: 0.28,
+        onLand,
+      })
     })
   }
 
@@ -823,6 +710,7 @@ export function startBattle() {
           timer.after(1.8, () => startEncounter(encounterIdx + 1))
         } else {
           gameState.set('game_over')
+          sfx.victory()
           $goTitle.textContent = 'VICTORY'
           $goTitle.style.color = '#22d3ee'
           $goSub.textContent = `All ${ENCOUNTERS.length} encounters cleared in ${turnCount} turns`
@@ -835,6 +723,7 @@ export function startBattle() {
       gameState.set('resting')
       timer.after(0.65, () => {
         gameState.set('game_over')
+        sfx.defeat()
         $goTitle.textContent = 'DEFEATED'
         $goTitle.style.color = '#ef4444'
         $goSub.textContent = `Fell in enc ${encounterIdx + 1} · turn ${turnCount}`
