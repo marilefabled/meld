@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MELD</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: #0a0a12; }
+    canvas { display: block; }
+
+    /* ── Hide all HUD until battle starts ───────────────────── */
+    body:not(.game-active) #hud,
+    body:not(.game-active) #enemy-intent,
+    body:not(.game-active) #turn-counter,
+    body:not(.game-active) #encounter-info,
+    body:not(.game-active) #banner,
+    body:not(.game-active) #energy,
+    body:not(.game-active) #ap-bonus,
+    body:not(.game-active) #hand,
+    body:not(.game-active) #deck-info,
+    body:not(.game-active) #end-turn,
+    body:not(.game-active) #game-over {
+      display: none !important;
+    }
+
+    /* ── HUD rows ────────────────────────────────────────────── */
+    #hud { position: fixed; top: 0; left: 0; width: 100%; pointer-events: none; z-index: 10; }
+
+    .hp-row {
+      display: flex; align-items: center; gap: 10px;
+      padding: 12px 20px; font: bold 13px/1 'Segoe UI', sans-serif;
+      color: #fff; text-shadow: 0 1px 4px rgba(0,0,0,.6);
+    }
+    .hp-row.enemy { justify-content: flex-end; }
+
+    .hp-bar-bg {
+      width: 200px; height: 13px; background: #1a1a2e; border-radius: 7px;
+      border: 1px solid rgba(255,255,255,.12); overflow: hidden;
+    }
+    .hp-bar { height: 100%; border-radius: 7px; transition: width .3s ease; }
+    .hp-bar.player { background: linear-gradient(90deg, #22d3ee, #3b82f6); }
+    .hp-bar.enemy  { background: linear-gradient(90deg, #f43f5e, #ef4444); }
+    .hp-text {
+      min-width: 56px; font-variant-numeric: tabular-nums; font-size: 12px;
+      text-align: right; color: #cbd5e1;
+    }
+    .hp-row.enemy .hp-text { text-align: left; }
+
+    .block-badge {
+      display: inline-block; background: #7c3aed; color: #e9d5ff; font-size: 11px;
+      padding: 2px 7px; border-radius: 10px; opacity: 0; transition: opacity .2s;
+    }
+    .block-badge.show { opacity: 1; }
+
+    /* ── Enemy intent ────────────────────────────────────────── */
+    #enemy-intent {
+      position: fixed; top: 48px; right: 20px; z-index: 10; pointer-events: none;
+      font: bold 12px/1.4 'Segoe UI', sans-serif; color: #fca5a5;
+      text-align: right; opacity: 0; transition: opacity .3s;
+      text-shadow: 0 0 8px rgba(239,68,68,.5);
+    }
+    #enemy-intent.show { opacity: 1; }
+    #enemy-intent .intent-label { font-size: 9px; color: #6b7280; letter-spacing: 1px; margin-bottom: 2px; }
+
+    /* ── Turn banner ─────────────────────────────────────────── */
+    #banner {
+      position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      font: bold 26px/1 'Segoe UI', sans-serif; color: #fff;
+      text-shadow: 0 0 20px rgba(99,102,241,.8); opacity: 0;
+      pointer-events: none; z-index: 20; transition: opacity .25s;
+    }
+    #banner.show { opacity: 1; }
+
+    /* ── Card hand ───────────────────────────────────────────── */
+    #hand {
+      position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%);
+      display: flex; gap: 10px; z-index: 10; perspective: 600px;
+      transition: opacity .25s;
+    }
+    #hand.dimmed { opacity: .2; pointer-events: none; }
+
+    .card {
+      width: 112px; padding: 12px 9px 10px;
+      background: linear-gradient(135deg, #1e1b4b, #312e81);
+      border: 2px solid #6366f1; border-radius: 11px; color: #e0e7ff;
+      text-align: center; cursor: pointer; user-select: none;
+      font-family: 'Segoe UI', sans-serif; position: relative;
+      transition: transform .15s, box-shadow .15s, border-color .15s;
+    }
+    .card:hover {
+      transform: translateY(-13px) rotateX(-4deg);
+      box-shadow: 0 10px 28px rgba(99,102,241,.45); border-color: #a5b4fc;
+    }
+    .card:active { transform: translateY(-5px) scale(.97); }
+    .card.disabled { opacity: .3; pointer-events: none; }
+    .card .icon  { font-size: 26px; margin-bottom: 5px; }
+    .card .name  { font-weight: 700; font-size: 12px; margin-bottom: 3px; }
+    .card .desc  { font-size: 11px; color: #a5b4fc; line-height: 1.3; }
+    .card .cost  { font-size: 10px; color: #818cf8; margin-top: 5px; }
+
+    /* ── Tier styling ─────────────────────────────────────────── */
+    .card.tier-2 { border-color: #f59e0b; background: linear-gradient(135deg, #1c1a0e, #292210); }
+    .card.tier-2:hover { box-shadow: 0 10px 28px rgba(245,158,11,.5); border-color: #fcd34d; }
+    .card.tier-3 { border-color: #ef4444; background: linear-gradient(135deg, #1c0e0e, #291010);
+                   animation: tier3pulse 2s ease-in-out infinite; }
+    .card.tier-3:hover { box-shadow: 0 10px 28px rgba(239,68,68,.6); border-color: #fca5a5; }
+    @keyframes tier3pulse {
+      0%,100% { box-shadow: 0 0 8px rgba(239,68,68,.3); }
+      50%     { box-shadow: 0 0 18px rgba(239,68,68,.7); }
+    }
+    .tier-badge { position: absolute; top: 5px; right: 7px; font-size: 10px; font-weight: 900; letter-spacing: 1px; }
+    .tier-badge.t1 { color: #818cf8; }
+    .tier-badge.t2 { color: #f59e0b; }
+    .tier-badge.t3 { color: #ef4444; }
+
+    /* ── Merge + hold buttons ─────────────────────────────────── */
+    .merge-btn, .hold-btn {
+      margin-top: 5px; width: 100%; padding: 4px 0; border-radius: 6px;
+      font: bold 9px/1 'Segoe UI', sans-serif; cursor: pointer; letter-spacing: 1px;
+      transition: background .12s;
+    }
+    .merge-btn { background: rgba(245,158,11,.15); border: 1px solid #f59e0b; color: #fcd34d; }
+    .merge-btn:hover { background: rgba(245,158,11,.35); }
+    .card.mergeable { box-shadow: 0 0 10px rgba(245,158,11,.4); }
+
+    .hold-btn { background: rgba(99,102,241,.1); border: 1px solid #6366f1; color: #a5b4fc; }
+    .hold-btn:hover { background: rgba(99,102,241,.3); }
+
+    .card.held {
+      border-color: #a78bfa; background: linear-gradient(135deg, #1a1040, #22145a);
+      box-shadow: 0 0 12px rgba(167,139,250,.5);
+    }
+    .card.held .hold-btn { background: rgba(167,139,250,.25); color: #c4b5fd; border-color: #a78bfa; }
+    .hold-badge { position: absolute; top: 5px; left: 7px; font-size: 9px; font-weight: 900; color: #a78bfa; letter-spacing: 1px; }
+
+    /* ── Energy pips ──────────────────────────────────────────── */
+    #energy {
+      position: fixed; bottom: 182px; left: 50%; transform: translateX(-50%);
+      display: flex; align-items: center; gap: 10px; z-index: 10;
+    }
+    .energy-pip {
+      width: 14px; height: 14px; border-radius: 50%;
+      background: #a78bfa; box-shadow: 0 0 6px rgba(167,139,250,.6);
+      transition: background .2s, box-shadow .2s, transform .2s;
+    }
+    .energy-pip.spent {
+      background: #2d2a4e; box-shadow: none; transform: scale(.7);
+    }
+    #energy-label {
+      font: bold 11px/1 'Segoe UI', sans-serif; color: #6b7280; letter-spacing: 1px;
+    }
+
+    /* ── AP bonus indicator ───────────────────────────────────── */
+    #ap-bonus {
+      position: fixed; bottom: 166px; left: 50%; transform: translateX(-50%);
+      font: bold 11px/1 'Segoe UI', sans-serif; color: #6ee7b7; z-index: 10;
+      opacity: 0; transition: opacity .3s; white-space: nowrap;
+    }
+    #ap-bonus.show { opacity: 1; }
+
+    /* ── Deck info (bottom-left) ─────────────────────────────── */
+    #deck-info {
+      position: fixed; bottom: 28px; left: 26px; z-index: 10; pointer-events: none;
+      font: 12px/1.6 'Segoe UI', sans-serif; color: #4b5563;
+    }
+    #deck-info span { color: #6b7280; }
+
+    /* ── End turn ─────────────────────────────────────────────── */
+    #end-turn {
+      position: fixed; bottom: 26px; right: 26px; z-index: 10;
+      padding: 10px 22px; font: bold 13px/1 'Segoe UI', sans-serif;
+      background: #4f46e5; color: #fff; border: none; border-radius: 8px;
+      cursor: pointer; transition: background .12s, opacity .2s;
+    }
+    #end-turn:hover { background: #6366f1; }
+    #end-turn.disabled { opacity: .3; pointer-events: none; }
+
+    /* ── Floating damage numbers ──────────────────────────────── */
+    .dmg-float {
+      position: fixed; pointer-events: none; z-index: 50;
+      font: bold 22px/1 'Segoe UI', sans-serif;
+      text-shadow: 0 2px 6px rgba(0,0,0,.8);
+      animation: dmgrise .85s ease-out forwards;
+    }
+    @keyframes dmgrise {
+      0%   { transform: translateY(0)    scale(1.2); opacity: 1; }
+      55%  { transform: translateY(-48px) scale(1);  opacity: 1; }
+      100% { transform: translateY(-72px) scale(.8); opacity: 0; }
+    }
+
+    /* ── HP bar hit flash ────────────────────────────────────── */
+    @keyframes hpflash {
+      0%   { filter: brightness(2.8); }
+      100% { filter: brightness(1); }
+    }
+    .hp-bar.damaged { animation: hpflash 0.38s ease-out; }
+
+    /* ── Low HP warning ──────────────────────────────────────── */
+    @keyframes hplow {
+      0%, 100% { box-shadow: none; }
+      50%      { box-shadow: inset 0 0 0 2px rgba(239,68,68,.8), 0 0 10px rgba(239,68,68,.4); }
+    }
+    .hp-bar-bg.low-hp { animation: hplow 1s ease-in-out infinite; }
+
+    /* ── Full-screen hit vignette ────────────────────────────── */
+    #hit-vignette {
+      position: fixed; inset: 0; pointer-events: none; z-index: 25; opacity: 0;
+      background: radial-gradient(ellipse at center, transparent 35%, rgba(239,68,68,.5) 100%);
+    }
+    #hit-vignette.flash { animation: vigflash 0.55s ease-out; }
+    @keyframes vigflash {
+      0%   { opacity: 1; }
+      100% { opacity: 0; }
+    }
+
+    /* ── Card deal slide-up ───────────────────────────────────── */
+    @keyframes cardDeal {
+      from { transform: translateY(28px); opacity: 0; }
+      to   { transform: translateY(0);    opacity: 1; }
+    }
+
+    /* ── Turn counter (top-center) ───────────────────────────── */
+    #turn-counter {
+      position: fixed; top: 10px; left: 50%; transform: translateX(-50%);
+      font: bold 11px/1 'Segoe UI', sans-serif; color: #4b5563; z-index: 10;
+      pointer-events: none; letter-spacing: 2px;
+    }
+
+    /* ── Encounter counter (top-right) ──────────────────────── */
+    #encounter-info {
+      position: fixed; top: 10px; right: 26px; z-index: 10;
+      font: bold 11px/1 'Segoe UI', sans-serif; color: #4b5563;
+      pointer-events: none; letter-spacing: 1px;
+    }
+
+    /* ── Game over ────────────────────────────────────────────── */
+    #game-over {
+      position: fixed; inset: 0; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; z-index: 30;
+      background: rgba(0,0,0,.72); opacity: 0; pointer-events: none;
+      transition: opacity .35s; font-family: 'Segoe UI', sans-serif; color: #fff;
+    }
+    #game-over.show { opacity: 1; pointer-events: all; }
+    #game-over h1 { font-size: 48px; margin-bottom: 12px; }
+    #game-over p  { font-size: 16px; color: #9ca3af; }
+    #game-over button {
+      margin-top: 22px; padding: 12px 32px; font-size: 15px; font-weight: 700;
+      background: #4f46e5; color: #fff; border: none; border-radius: 8px; cursor: pointer;
+    }
+
+    /* ── Title screen overrides ───────────────────────────────── */
+    .meld-title {
+      text-align: center;
+    }
+    .meld-title .ms-title {
+      font-size: 3.8rem !important;
+      letter-spacing: 1.1em !important;
+      color: #a5b4fc !important;
+      text-shadow:
+        0 0 30px rgba(99,102,241,.9),
+        0 0 70px rgba(99,102,241,.5),
+        0 0 120px rgba(99,102,241,.2) !important;
+      margin-bottom: 2px !important;
+      padding-right: 1.1em;  /* compensate for letter-spacing on last char */
+    }
+    .meld-title .ms-hdr {
+      color: rgba(120,140,200,.45) !important;
+      letter-spacing: .32em !important;
+      font-size: .62rem !important;
+      padding-top: 0 !important;
+      padding-bottom: 10px !important;
+    }
+    .meld-title .ms-btn {
+      font-size: .92rem !important;
+      letter-spacing: .28em !important;
+    }
+  </style>
+</head>
+<body>
+  <div id="hud">
+    <div class="hp-row player">
+      <span>YOU</span>
+      <div class="hp-bar-bg"><div class="hp-bar player" id="hp-player"></div></div>
+      <span class="hp-text" id="hp-player-text"></span>
+      <span class="block-badge" id="block-player"></span>
+    </div>
+    <div class="hp-row enemy">
+      <span class="block-badge" id="block-enemy"></span>
+      <span class="hp-text" id="hp-enemy-text"></span>
+      <div class="hp-bar-bg"><div class="hp-bar enemy" id="hp-enemy"></div></div>
+      <span id="enemy-name">FOE</span>
+    </div>
+  </div>
+
+  <div id="enemy-intent"><div class="intent-label">FOE PLANS</div><div id="intent-text"></div></div>
+  <div id="turn-counter"></div>
+  <div id="encounter-info"></div>
+  <div id="banner"></div>
+
+  <div id="energy">
+    <div class="energy-pip"></div>
+    <div class="energy-pip"></div>
+    <div class="energy-pip"></div>
+    <span id="energy-label">AP</span>
+  </div>
+  <div id="ap-bonus"></div>
+  <div id="hand"></div>
+  <div id="deck-info"></div>
+
+  <button id="end-turn">END TURN</button>
+
+  <div id="hit-vignette"></div>
+
+  <div id="game-over">
+    <h1 id="go-title"></h1>
+    <p id="go-sub"></p>
+    <button id="go-restart">Play Again</button>
+  </div>
+
+  <script type="module" src="./src/main.ts"></script>
+</body>
+</html>
