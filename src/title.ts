@@ -15,6 +15,7 @@ export function showTitle() {
 
   const howToPlay: MenuDef = {
     title: 'HOW TO PLAY',
+    className: 'meld-how-to',
     items: [
       { type: 'header', label: '— CARDS —' },
       { type: 'header', label: 'Play cards to attack, defend, or heal.' },

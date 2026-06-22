@@ -1,3 +1,4 @@
+// vendored from threej@f973704 — src/engine/gameState.ts
 // Game-loop state machine: PLAYING → PAUSED → GAME_OVER (or custom states).
 // All frame callbacks registered via the loop should check `state.is('playing')`
 // before ticking gameplay. The pause menu checks `state.is('paused')`.

@@ -1,3 +1,4 @@
+// vendored from threej@f973704 — src/engine/sceneTransition.ts
 // Fade-to-black (or any colour) scene transitions. Owns a fullscreen CSS overlay
 // that fades in, fires a swap callback at the midpoint, then fades out.
 //

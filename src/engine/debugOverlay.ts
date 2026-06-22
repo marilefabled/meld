@@ -1,3 +1,4 @@
+// vendored from threej@f973704 — src/engine/debugOverlay.ts
 // Lightweight debug overlay: FPS, draw calls, triangles, and custom counters.
 // Toggle with backtick (`) or `overlay.visible = true`. Updates every 0.25 s.
 //

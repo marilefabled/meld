@@ -1,3 +1,4 @@
+// vendored from threej@f973704 — src/engine/menu.ts
 // Stack-based in-game menu system: main menu, pause overlay, options submenus —
 // any nested structure. Self-contained (injects its own CSS once). Keyboard +
 // mouse navigable. Matches the engine's dark blue-purple design language.

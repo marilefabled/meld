@@ -1,3 +1,4 @@
+// vendored from threej@f973704 — src/engine/stats.ts
 // Stat block — named numeric attributes for game entities (HP, MP, attack, etc.).
 // Each stat has a base value, optional min/max clamp, optional regen, and named
 // additive modifiers (buffs/debuffs). Effective value = clamp(base + Σmods, min, max).

@@ -1,3 +1,4 @@
+// vendored from threej@f973704 — src/engine/registry.ts
 // Data-driven content registry. Load enemies, items, levels, etc. from JSON
 // instead of hardcoding them in TypeScript. Like LÖVE tables but validated.
 //

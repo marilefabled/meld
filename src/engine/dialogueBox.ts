@@ -1,3 +1,4 @@
+// vendored from threej@f973704 — src/engine/dialogueBox.ts
 // Dialogue box UI — self-contained HTML/CSS overlay for the branching dialogue
 // system. Attach it to a DialogueRunner; it handles display, typewriter animation,
 // keyboard shortcuts, and choice buttons automatically.

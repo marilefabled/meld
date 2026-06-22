@@ -1,3 +1,4 @@
+// vendored from threej@f973704 — src/engine/branchDialogue.ts
 // Branching dialogue — data-driven conversation trees with conditions, flags,
 // effects, and non-linear flow. Separate from the Ink-based linear dialogue
 // (engine/dialogue.ts); use this for NPC interactions, interrogations, shops,

@@ -1,3 +1,4 @@
+// vendored from threej@f973704 — src/engine/shake.ts
 // Camera shake using the trauma model (Jan Bitters, "Game Feel").
 //
 // Trauma is a 0..1 accumulator: addTrauma(amount) adds to it (capped at 1).

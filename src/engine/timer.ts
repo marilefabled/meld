@@ -1,3 +1,4 @@
+// vendored from threej@f973704 — src/engine/timer.ts
 // Game-loop-integrated timers. Unlike setTimeout/GSAP, these run on the loop's
 // accumulated dt so they pause automatically when the game loop pauses (tab hidden,
 // scene paused, etc.). Call timer.update(dt) once per frame from your render loop.

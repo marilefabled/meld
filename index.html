@@ -3,7 +3,12 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>MELD</title>
+  <title>MELD — A Merging Card Battle</title>
+  <meta name="description" content="Fight three foes while melding identical cards into higher-tier powerhouses. A browser card battle game built with Three.js." />
+  <meta property="og:title" content="MELD" />
+  <meta property="og:description" content="Merge identical cards to climb tiers — Tier I → II → III — then fight harder foes with your fused deck. A fast browser card battle." />
+  <meta property="og:type" content="website" />
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%230a0a18'/><text x='16' y='24' text-anchor='middle' font-family='monospace' font-weight='900' font-size='22' fill='%236366f1'>M</text></svg>" />
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body { width: 100%; height: 100%; overflow: hidden; background: #0a0a12; }
@@ -136,7 +141,7 @@
 
     /* ── Energy pips ──────────────────────────────────────────── */
     #energy {
-      position: fixed; bottom: 182px; left: 50%; transform: translateX(-50%);
+      position: fixed; bottom: 212px; left: 50%; transform: translateX(-50%);
       display: flex; align-items: center; gap: 10px; z-index: 10;
     }
     .energy-pip {
@@ -153,7 +158,7 @@
 
     /* ── AP bonus indicator ───────────────────────────────────── */
     #ap-bonus {
-      position: fixed; bottom: 166px; left: 50%; transform: translateX(-50%);
+      position: fixed; bottom: 196px; left: 50%; transform: translateX(-50%);
       font: bold 11px/1 'Segoe UI', sans-serif; color: #6ee7b7; z-index: 10;
       opacity: 0; transition: opacity .3s; white-space: nowrap;
     }
@@ -274,6 +279,24 @@
     .meld-title .ms-btn {
       font-size: .92rem !important;
       letter-spacing: .28em !important;
+    }
+
+    /* ── How To Play menu — legible body text ─────────────────── */
+    .meld-how-to .ms-hdr {
+      font-size: .84rem !important;
+      letter-spacing: .03em !important;
+      color: rgba(195, 210, 255, .78) !important;
+      text-transform: none !important;
+      padding: 3px 20px !important;
+    }
+    /* Section labels keep their own decoration (— CARDS —) so
+       they read as distinct even without different font styling.
+       Bump them slightly to anchor sections. */
+    .meld-how-to .ms-sep + .ms-hdr {
+      padding-top: 8px !important;
+    }
+    .meld-how-to .ms-items > .ms-hdr:first-child {
+      padding-top: 0 !important;
     }
   </style>
 </head>

@@ -1,3 +1,4 @@
+// vendored from threej@f973704 — src/engine/deck.ts
 // Deck / card system — shuffled draw pile, hand, and discard pile for card games,
 // roguelike loot draws, random encounter tables, or any shuffled-pool mechanic.
 // Also exports createLootTable for weighted-random selection.

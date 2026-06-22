@@ -1,3 +1,4 @@
+// vendored from threej@f973704 — src/engine/portraitStore.ts
 // Portrait store — maps dialogue speaker IDs to image URLs.
 // Works with dialogueBox.ts: pass the store in opts and the box
 // resolves speaker → portrait automatically, no per-node portrait field needed.

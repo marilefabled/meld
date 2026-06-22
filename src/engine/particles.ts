@@ -1,3 +1,4 @@
+// vendored from threej@f973704 — src/engine/particles.ts
 import * as THREE from 'three';
 
 // A GPU-friendly particle system: ONE THREE.Points pool (one draw call) drawn as
