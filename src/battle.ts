@@ -16,7 +16,45 @@ const cards = createRegistry<CardDef>('cards')
 cards.loadAll(CARD_DATA)
 
 // ── Game entry ────────────────────────────────────────────────────────────
-export function startBattle() {
+export type PlayerClass = 'warrior' | 'mage' | 'rogue'
+
+const CLASS_CONFIGS: Record<PlayerClass, { hp: number; deck: string[] }> = {
+  warrior: {
+    hp: 70,
+    deck: [
+      'strike', 'strike', 'strike', 'strike',
+      'slash', 'slash',
+      'fireball',
+      'block', 'block', 'block',
+      'barrier',
+      'heal', 'heal',
+    ],
+  },
+  mage: {
+    hp: 50,
+    deck: [
+      'strike', 'strike',
+      'slash',
+      'fireball', 'fireball', 'fireball', 'fireball',
+      'barrier', 'barrier',
+      'heal', 'heal', 'heal', 'heal',
+    ],
+  },
+  rogue: {
+    hp: 60,
+    deck: [
+      'strike', 'strike',
+      'slash', 'slash', 'slash', 'slash', 'slash',
+      'fireball',
+      'block', 'block',
+      'barrier',
+      'heal', 'heal',
+    ],
+  },
+}
+
+export function startBattle({ playerClass = 'warrior' as PlayerClass }: { playerClass?: PlayerClass } = {}) {
+  const classConfig = CLASS_CONFIGS[playerClass]
   // ── Renderer + scene ───────────────────────────────────────────────────
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false })
   renderer.setSize(window.innerWidth, window.innerHeight)
@@ -117,7 +155,7 @@ export function startBattle() {
 
   // ── Stats ────────────────────────────────────────────────────────────────
   const playerStats = createStatBlock({
-    hp:         { base: 60, max: 60 },
+    hp:         { base: classConfig.hp, max: classConfig.hp },
     absorb:     { base: 0, max: 99 },
     vulnerable: { base: 0, max: 10 },
     poison:     { base: 0, max: 20 },
@@ -136,14 +174,7 @@ export function startBattle() {
   let turnCount = 0
 
   // ── Deck ─────────────────────────────────────────────────────────────────
-  const startingDeck = [
-    'strike', 'strike', 'strike', 'strike',
-    'slash', 'slash',
-    'fireball', 'fireball',
-    'block', 'block',
-    'barrier',
-    'heal', 'heal',
-  ]
+  const startingDeck = classConfig.deck
 
   const deck = createDeck<GameCard>(startingDeck.map(id => makeCard(id)))
   deck.shuffle()

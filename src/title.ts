@@ -3,7 +3,7 @@ import { createSceneTransition } from './engine/sceneTransition.js'
 import { createDialogueRunner } from './engine/branchDialogue.js'
 import { createDialogueBox } from './engine/dialogueBox.js'
 import { createPortraitStore } from './engine/portraitStore.js'
-import { INTRO } from './intro.js'
+import { INTRO, type IntroCtx } from './intro.js'
 import type { MenuDef } from './engine/menu.js'
 
 export function showTitle() {
@@ -57,15 +57,17 @@ export function showTitle() {
     const runner = createDialogueRunner()
     const box = createDialogueBox(runner, { position: 'bottom', portraits })
 
+    const ctx: IntroCtx = { class: 'warrior' }
+
     runner.on('end', async () => {
       box.dispose()
       const { startBattle } = await battleModule
       trans.go(() => {
         document.body.classList.add('game-active')
-        startBattle()
+        startBattle({ playerClass: ctx.class })
       })
     })
 
-    runner.start(INTRO, {})
+    runner.start(INTRO, ctx)
   }
 }
