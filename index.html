@@ -58,6 +58,37 @@
     }
     .block-badge.show { opacity: 1; }
 
+    /* ── Enemy select screen ────────────────────────────────── */
+    .enemy-select {
+      position: fixed; inset: 0; z-index: 100;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      background: rgba(10,10,24,.96); gap: 36px;
+      opacity: 0; transition: opacity .35s ease;
+    }
+    .enemy-select.visible { opacity: 1; }
+    .es-title {
+      font: 900 22px/1 'Segoe UI', sans-serif; letter-spacing: 4px;
+      color: #a5b4fc; text-shadow: 0 0 20px rgba(99,102,241,.6);
+    }
+    .es-grid { display: flex; gap: 20px; }
+    .es-card {
+      width: 200px; padding: 0 0 20px;
+      background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.1);
+      border-radius: 10px; cursor: pointer; text-align: center;
+      transition: transform .18s, border-color .18s, box-shadow .18s;
+      overflow: hidden; color: #fff; display: flex; flex-direction: column; align-items: center;
+    }
+    .es-card:hover {
+      transform: translateY(-6px);
+      border-color: var(--ec);
+      box-shadow: 0 8px 28px color-mix(in srgb, var(--ec) 35%, transparent);
+    }
+    .es-swatch { width: 100%; height: 90px; background: var(--ec); margin-bottom: 14px; }
+    .es-name { font: 900 18px/1 'Segoe UI', sans-serif; letter-spacing: 2px; margin-bottom: 4px; }
+    .es-hp { font: 600 12px/1 'Segoe UI', sans-serif; color: #94a3b8; margin-bottom: 6px; }
+    .es-diff { font: 700 14px/1 monospace; color: var(--ec); margin-bottom: 10px; }
+    .es-desc { font: 400 11px/1.4 'Segoe UI', sans-serif; color: #94a3b8; padding: 0 14px; }
+
     /* ── Status effect pills ────────────────────────────────── */
     .status-row {
       display: flex; padding: 0 20px 3px; gap: 5px; min-height: 16px; flex-wrap: wrap;

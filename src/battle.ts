@@ -53,7 +53,7 @@ const CLASS_CONFIGS: Record<PlayerClass, { hp: number; deck: string[] }> = {
   },
 }
 
-export function startBattle({ playerClass = 'warrior' as PlayerClass }: { playerClass?: PlayerClass } = {}) {
+export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom = 0 }: { playerClass?: PlayerClass; startFrom?: number } = {}) {
   const classConfig = CLASS_CONFIGS[playerClass]
   // ── Renderer + scene ───────────────────────────────────────────────────
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false })
@@ -929,5 +929,5 @@ export function startBattle({ playerClass = 'warrior' as PlayerClass }: { player
 
   // ── Kick off ─────────────────────────────────────────────────────────────
 
-  startEncounter(0)
+  startEncounter(startFrom)
 }

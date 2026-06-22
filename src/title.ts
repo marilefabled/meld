@@ -4,7 +4,46 @@ import { createDialogueRunner } from './engine/branchDialogue.js'
 import { createDialogueBox } from './engine/dialogueBox.js'
 import { createPortraitStore } from './engine/portraitStore.js'
 import { INTRO, type IntroCtx } from './intro.js'
+import { ENCOUNTERS } from './data/encounters.js'
 import type { MenuDef } from './engine/menu.js'
+
+const ENEMY_FLAVOR = [
+  { diff: '★☆☆', desc: 'Fast and ferocious. Don\'t underestimate the claws.' },
+  { diff: '★★☆', desc: 'Hits hard and guards when you\'d least expect it.' },
+  { diff: '★★★', desc: 'Ancient. Poisonous. Relentless. Your Tier IIIs must shine.' },
+]
+
+function showEnemySelect(): Promise<number> {
+  return new Promise(resolve => {
+    const overlay = document.createElement('div')
+    overlay.className = 'enemy-select'
+    overlay.innerHTML = `
+      <div class="es-title">CHOOSE YOUR OPPONENT</div>
+      <div class="es-grid">
+        ${ENCOUNTERS.map((e, i) => `
+          <button class="es-card" data-idx="${i}" style="--ec: #${e.bodyColor.toString(16).padStart(6, '0')}">
+            <div class="es-swatch"></div>
+            <div class="es-name">${e.name}</div>
+            <div class="es-hp">${e.hp} HP</div>
+            <div class="es-diff">${ENEMY_FLAVOR[i].diff}</div>
+            <div class="es-desc">${ENEMY_FLAVOR[i].desc}</div>
+          </button>
+        `).join('')}
+      </div>
+    `
+    document.body.appendChild(overlay)
+    requestAnimationFrame(() => overlay.classList.add('visible'))
+
+    overlay.querySelectorAll<HTMLButtonElement>('.es-card').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const idx = parseInt(btn.dataset.idx!)
+        overlay.classList.remove('visible')
+        overlay.addEventListener('transitionend', () => overlay.remove(), { once: true })
+        resolve(idx)
+      })
+    })
+  })
+}
 
 export function showTitle() {
   // Pre-load battle module while title screen is visible
@@ -61,10 +100,11 @@ export function showTitle() {
 
     runner.on('end', async () => {
       box.dispose()
+      const idx = await showEnemySelect()
       const { startBattle } = await battleModule
       trans.go(() => {
         document.body.classList.add('game-active')
-        startBattle({ playerClass: ctx.class })
+        startBattle({ playerClass: ctx.class, startFrom: idx })
       })
     })
 
