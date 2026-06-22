@@ -65,8 +65,31 @@ export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom 
   document.body.prepend(renderer.domElement)
 
   const scene = new THREE.Scene()
-  scene.background = new THREE.Color(0x0a0a18)
-  scene.fog = new THREE.FogExp2(0x0a0a18, 0.04)
+  scene.background = new THREE.Color(0x020108)
+  scene.fog = new THREE.FogExp2(0x100522, 0.042)
+
+  // ── Sky dome ────────────────────────────────────────────────────────────
+  const skyDome = new THREE.Mesh(
+    new THREE.SphereGeometry(55, 20, 10),
+    new THREE.ShaderMaterial({
+      side: THREE.BackSide,
+      depthWrite: false,
+      vertexShader: `
+        varying vec3 vPos;
+        void main() { vPos = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }
+      `,
+      fragmentShader: `
+        varying vec3 vPos;
+        void main() {
+          float t = clamp(normalize(vPos).y * 1.3 + 0.12, 0.0, 1.0);
+          vec3 zenith  = vec3(0.015, 0.008, 0.06);
+          vec3 horizon = vec3(0.10,  0.04,  0.22);
+          gl_FragColor = vec4(mix(horizon, zenith, t * t), 1.0);
+        }
+      `,
+    }),
+  )
+  scene.add(skyDome)
 
   const camera = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.1, 100)
   camera.position.set(0, 5.5, 8)
@@ -100,8 +123,8 @@ export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom 
   scene.add(warmRim)
 
   // ── Arena floor ─────────────────────────────────────────────────────────
-  const floorGeo = new THREE.PlaneGeometry(14, 10)
-  const floorMat = new THREE.MeshStandardMaterial({ color: 0x141428, roughness: 0.85, metalness: 0.1 })
+  const floorGeo = new THREE.PlaneGeometry(20, 16)
+  const floorMat = new THREE.MeshStandardMaterial({ color: 0x0d0b16, roughness: 0.97, metalness: 0.0 })
   const floor = new THREE.Mesh(floorGeo, floorMat)
   floor.rotation.x = -Math.PI / 2
   floor.receiveShadow = true
@@ -133,6 +156,31 @@ export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom 
   const enemyFloorLight = new THREE.PointLight(0xef4444, 0.7, 3.5)
   enemyFloorLight.position.set(2.5, 0.1, 0)
   scene.add(enemyFloorLight)
+
+  // ── Rocks ───────────────────────────────────────────────────────────────
+  const rockMatA = new THREE.MeshStandardMaterial({ color: 0x1c1428, roughness: 0.93, metalness: 0.04 })
+  const rockMatB = new THREE.MeshStandardMaterial({ color: 0x271840, roughness: 0.88, metalness: 0.08 })
+  function mkRock(x: number, z: number, s: number, ry: number, mat: THREE.MeshStandardMaterial) {
+    const m = new THREE.Mesh(new THREE.IcosahedronGeometry(s, 0), mat)
+    m.position.set(x, s * 0.5, z)
+    m.rotation.set(0.3, ry, 0.1)
+    m.castShadow = true; m.receiveShadow = true
+    scene.add(m)
+  }
+  // back row
+  mkRock(-4.8, -4.4, 0.90, 0.3,  rockMatA)
+  mkRock(-2.2, -5.0, 0.50, 1.1,  rockMatB)
+  mkRock( 0.4, -5.2, 0.70, 0.7,  rockMatA)
+  mkRock( 3.2, -4.6, 1.00, 2.1,  rockMatB)
+  mkRock( 5.0, -3.9, 0.55, 0.9,  rockMatA)
+  // left side
+  mkRock(-6.0, -1.5, 0.65, 1.5,  rockMatB)
+  mkRock(-5.6,  1.0, 0.40, 0.4,  rockMatA)
+  mkRock(-6.3,  2.8, 0.80, 2.3,  rockMatB)
+  // right side
+  mkRock( 5.8, -1.0, 0.55, 1.2,  rockMatA)
+  mkRock( 6.1,  1.5, 0.70, 0.6,  rockMatB)
+  mkRock( 5.5,  2.8, 0.42, 1.8,  rockMatA)
 
   // ── Units ───────────────────────────────────────────────────────────────
   const player = buildUnit(0x3b82f6, 0x60a5fa)
