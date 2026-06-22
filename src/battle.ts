@@ -177,7 +177,7 @@ export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom 
   const deck = createDeck<GameCard>(startingDeck.map(id => makeCard(id)))
   deck.shuffle()
 
-  const MAX_HOLDS = 1
+  const MAX_HOLDS = 2
   const heldIds = new Set<string>()
   let bonusDraw = 0
 
@@ -616,7 +616,10 @@ export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom 
       animBlock(actor, () => {
         dealAbsorb(actorStats, value, actorHdPos)
         const healAmt = opts.healAmount ?? 0
-        if (healAmt > 0) dealHeal(actorStats, healAmt, actorHdPos)
+        if (healAmt > 0) {
+          const healPos = actorHdPos.clone(); healPos.x += 0.45
+          dealHeal(actorStats, healAmt, healPos)
+        }
         onLand?.()
         updateHUD()
         timer.after(0.13, commit)
@@ -805,7 +808,7 @@ export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom 
   $endTurn.addEventListener('click', () => {
     if (!gameState.is('player_turn') || _animating) return
     $endTurn.classList.add('disabled')
-    bonusDraw = Math.min(energy, 2)
+    bonusDraw = energy
     $hand.innerHTML = ''
     $apBonus.classList.remove('show')
     enemyTurn()
