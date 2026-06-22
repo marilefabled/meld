@@ -182,6 +182,33 @@ export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom 
   mkRock( 6.1,  1.5, 0.70, 0.6,  rockMatB)
   mkRock( 5.5,  2.8, 0.42, 1.8,  rockMatA)
 
+  // ── Pillars ─────────────────────────────────────────────────────────────
+  const pillarMat = new THREE.MeshStandardMaterial({ color: 0x17102a, roughness: 0.92 })
+  function mkPillar(x: number, z: number, h: number) {
+    const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.17, h, 6), pillarMat)
+    shaft.position.set(x, h / 2, z); shaft.castShadow = true
+    scene.add(shaft)
+    const cap = new THREE.Mesh(new THREE.BoxGeometry(0.40, 0.20, 0.40), pillarMat)
+    cap.position.set(x, h + 0.10, z)
+    scene.add(cap)
+  }
+  mkPillar(-6.0, -5.0, 4.6)
+  mkPillar(-3.4, -5.8, 3.9)
+  mkPillar( 3.4, -5.8, 3.9)
+  mkPillar( 6.0, -5.0, 4.6)
+
+  // ── Arena floor markings ─────────────────────────────────────────────────
+  function arenaRing(r1: number, r2: number, opacity: number, color: number) {
+    const m = new THREE.Mesh(
+      new THREE.RingGeometry(r1, r2, 72),
+      new THREE.MeshBasicMaterial({ color, transparent: true, opacity, side: THREE.DoubleSide }),
+    )
+    m.rotation.x = -Math.PI / 2; m.position.y = 0.012
+    scene.add(m)
+  }
+  arenaRing(4.2, 4.35, 0.30, 0x4a1d96)
+  arenaRing(1.3, 1.45, 0.22, 0x6d28d9)
+
   // ── Units ───────────────────────────────────────────────────────────────
   const player = buildUnit(0x3b82f6, 0x60a5fa)
   player.group.position.set(-2.5, 0, 0)
@@ -747,9 +774,13 @@ export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom 
       playerStats.set(s, 0)
       enemyStats.set(s, 0)
     }
+    const scale = [0.82, 1.15, 1.32][idx] ?? 1.0
+    enemy.group.scale.setScalar(scale)
     enemy.body.material.emissiveIntensity = 0
-    enemy.body.material.color.setHex(def.bodyColor)
-    enemy.head.material.color.setHex(def.accentColor)
+    enemy.bodyMat.color.setHex(def.bodyColor)
+    enemy.accentMat.color.setHex(def.accentColor)
+    enemy.visorMat.color.setHex(def.accentColor)
+    enemy.visorMat.emissive.setHex(def.accentColor)
     enemyRingMat.color.setHex(def.bodyColor)
     enemyFloorLight.color.setHex(def.bodyColor)
 

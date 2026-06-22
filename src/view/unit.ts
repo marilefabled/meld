@@ -6,6 +6,9 @@ export interface Unit {
   head:  THREE.Mesh<THREE.BoxGeometry, THREE.MeshStandardMaterial>
   armL:  THREE.Group; armR: THREE.Group
   legL:  THREE.Group; legR: THREE.Group
+  bodyMat:   THREE.MeshStandardMaterial
+  accentMat: THREE.MeshStandardMaterial
+  visorMat:  THREE.MeshStandardMaterial
 }
 
 export function buildUnit(color: number, accent: number): Unit {
@@ -104,5 +107,5 @@ export function buildUnit(color: number, accent: number): Unit {
   legR.add(footR)
   group.add(legR)
 
-  return { group, body, head, armL, armR, legL, legR }
+  return { group, body, head, armL, armR, legL, legR, bodyMat, accentMat, visorMat }
 }
