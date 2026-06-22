@@ -1,6 +1,9 @@
+import type { StatusEffect } from './cards.js'
+
 export interface EnemyMove {
   name: string; type: 'attack' | 'defend' | 'heal'
   value: number; color: number; label: string
+  status?: Omit<StatusEffect, 'target'> & { target: 'player' | 'enemy' }
 }
 export interface EnemyDef {
   name: string; bodyColor: number; accentColor: number; hp: number; moves: EnemyMove[]
@@ -26,7 +29,8 @@ export const ENCOUNTERS: EnemyDef[] = [
     name: 'CORE', bodyColor: 0x1e1b4b, accentColor: 0x4338ca, hp: 120,
     moves: [
       { name: 'Crush',    type: 'attack', value: 10, color: 0xef4444, label: '⚡ Crush · 10 dmg' },
-      { name: 'Surge',    type: 'attack', value: 15, color: 0xdc2626, label: '💀 Surge · 15 dmg' },
+      { name: 'Surge',    type: 'attack', value: 15, color: 0xdc2626, label: '💀 Surge · 15 dmg + poison',
+        status: { kind: 'poison', stacks: 2, target: 'player' } },
       { name: 'Fortify',  type: 'defend', value: 5,  color: 0x6366f1, label: '🔮 Fortify · +5 absorb' },
       { name: 'Recharge', type: 'heal',   value: 8,  color: 0x22c55e, label: '💚 Recharge · +8 HP' },
     ],

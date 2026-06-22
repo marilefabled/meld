@@ -1,15 +1,48 @@
+export interface StatusEffect {
+  kind: 'vulnerable' | 'poison' | 'weak'
+  stacks: number
+  target: 'enemy' | 'self'
+}
+
 export interface CardDef {
   name: string; icon: string; type: 'attack' | 'defend' | 'heal'
-  value: number; cost: number; desc(val: number): string; color: number
+  value: number; cost: number; desc(val: number, tier?: number): string; color: number
+  tierIIIStatus?: StatusEffect
 }
 
 export const CARD_DATA: Record<string, CardDef> = {
-  strike:   { name: 'Strike',   icon: '⚔️',  type: 'attack', value: 6,  cost: 1, desc: v => `Deal ${v} dmg`,           color: 0xef4444 },
-  fireball: { name: 'Fireball', icon: '🔥',  type: 'attack', value: 9,  cost: 2, desc: v => `Deal ${v} dmg`,           color: 0xf97316 },
-  slash:    { name: 'Slash',    icon: '🗡️',  type: 'attack', value: 4,  cost: 1, desc: v => `Deal ${v} dmg`,           color: 0xa855f7 },
-  block:    { name: 'Absorb',   icon: '🔮',  type: 'defend', value: 2,  cost: 1, desc: v => `+${v} absorb · +${v} HP`, color: 0x818cf8 },
-  barrier:  { name: 'Shell',    icon: '💠',  type: 'defend', value: 4,  cost: 2, desc: v => `+${v} absorb · +${v} HP`, color: 0x6366f1 },
-  heal:     { name: 'Heal',     icon: '💚',  type: 'heal',   value: 7,  cost: 1, desc: v => `Restore ${v} HP`,         color: 0x22c55e },
+  strike: {
+    name: 'Strike', icon: '⚔️', type: 'attack', value: 6, cost: 1,
+    desc: v => `Deal ${v} dmg`,
+    color: 0xef4444,
+  },
+  fireball: {
+    name: 'Fireball', icon: '🔥', type: 'attack', value: 9, cost: 2,
+    desc: (v, t) => t === 3 ? `Deal ${v} dmg · ignite 3` : `Deal ${v} dmg`,
+    color: 0xf97316,
+    tierIIIStatus: { kind: 'poison', stacks: 3, target: 'enemy' },
+  },
+  slash: {
+    name: 'Slash', icon: '🗡️', type: 'attack', value: 4, cost: 1,
+    desc: (v, t) => t === 3 ? `Deal ${v} dmg · bleed 2` : `Deal ${v} dmg`,
+    color: 0xa855f7,
+    tierIIIStatus: { kind: 'vulnerable', stacks: 2, target: 'enemy' },
+  },
+  block: {
+    name: 'Absorb', icon: '🔮', type: 'defend', value: 2, cost: 1,
+    desc: v => `+${v} absorb · +${v} HP`,
+    color: 0x818cf8,
+  },
+  barrier: {
+    name: 'Shell', icon: '💠', type: 'defend', value: 4, cost: 2,
+    desc: v => `+${v} absorb · +${v} HP`,
+    color: 0x6366f1,
+  },
+  heal: {
+    name: 'Heal', icon: '💚', type: 'heal', value: 7, cost: 1,
+    desc: v => `Restore ${v} HP`,
+    color: 0x22c55e,
+  },
 }
 
 export const TIER_ROMAN = ['', 'I', 'II', 'III'] as const

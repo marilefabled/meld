@@ -58,6 +58,22 @@
     }
     .block-badge.show { opacity: 1; }
 
+    /* ── Status effect pills ────────────────────────────────── */
+    .status-row {
+      display: flex; padding: 0 20px 3px; gap: 5px; min-height: 16px; flex-wrap: wrap;
+    }
+    .status-row.enemy { justify-content: flex-end; }
+    .status-pill {
+      font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 8px;
+      letter-spacing: .3px; opacity: .92;
+    }
+    .status-pill.vulnerable { background: rgba(220,38,38,.3);  color: #fca5a5; border: 1px solid #dc2626; }
+    .status-pill.poison     { background: rgba(124,58,237,.3); color: #c4b5fd; border: 1px solid #7c3aed; }
+    .status-pill.weak       { background: rgba(202,138,4,.3);  color: #fef08a; border: 1px solid #ca8a04; }
+
+    /* ── Merge button disabled state ─────────────────────────── */
+    .merge-btn:disabled { opacity: .3; cursor: default; }
+
     /* ── Enemy intent ────────────────────────────────────────── */
     #enemy-intent {
       position: fixed; top: 48px; right: 20px; z-index: 10; pointer-events: none;
@@ -308,6 +324,8 @@
       <span class="hp-text" id="hp-player-text"></span>
       <span class="block-badge" id="block-player"></span>
     </div>
+    <div class="status-row player" id="status-player"></div>
+    <div class="status-row enemy" id="status-enemy"></div>
     <div class="hp-row enemy">
       <span class="block-badge" id="block-enemy"></span>
       <span class="hp-text" id="hp-enemy-text"></span>

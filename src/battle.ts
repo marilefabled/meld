@@ -116,8 +116,20 @@ export function startBattle() {
   const vfx = createParticles(scene, { max: 400, gravity: new THREE.Vector3(0, -3, 0), drag: 0.4 })
 
   // ── Stats ────────────────────────────────────────────────────────────────
-  const playerStats = createStatBlock({ hp: { base: 60, max: 60 }, absorb: { base: 0, max: 99 } })
-  const enemyStats  = createStatBlock({ hp: { base: 50, max: 50 }, absorb: { base: 0, max: 99 } })
+  const playerStats = createStatBlock({
+    hp:         { base: 60, max: 60 },
+    absorb:     { base: 0, max: 99 },
+    vulnerable: { base: 0, max: 10 },
+    poison:     { base: 0, max: 20 },
+    weak:       { base: 0, max: 10 },
+  })
+  const enemyStats = createStatBlock({
+    hp:         { base: 50, max: 50 },
+    absorb:     { base: 0, max: 99 },
+    vulnerable: { base: 0, max: 10 },
+    poison:     { base: 0, max: 20 },
+    weak:       { base: 0, max: 10 },
+  })
 
   const MAX_ENERGY = 3
   let energy = MAX_ENERGY
@@ -165,6 +177,8 @@ export function startBattle() {
   const $goRestart   = document.getElementById('go-restart')!
   const $enemyName     = document.getElementById('enemy-name')!
   const $encounterInfo = document.getElementById('encounter-info')!
+  const $statusPlayer  = document.getElementById('status-player')!
+  const $statusEnemy   = document.getElementById('status-enemy')!
 
   // ── Encounter state ──────────────────────────────────────────────────────
   let ENEMY_MOVES: EnemyMove[] = []
@@ -228,6 +242,26 @@ export function startBattle() {
       `<span>DRAW</span> ${deck.drawPile.length} &nbsp; <span>DISC</span> ${deck.discardPile.length}`
 
     $turnCounter.textContent = `TURN ${turnCount}`
+
+    renderStatuses($statusPlayer, playerStats)
+    renderStatuses($statusEnemy, enemyStats)
+  }
+
+  function renderStatuses(el: HTMLElement, stats: StatBlock) {
+    el.innerHTML = ''
+    const defs = [
+      { key: 'vulnerable', cls: 'vulnerable', icon: '💔', label: 'VULN' },
+      { key: 'poison',     cls: 'poison',     icon: '☠',  label: 'PSNS' },
+      { key: 'weak',       cls: 'weak',        icon: '💀', label: 'WEAK' },
+    ]
+    for (const d of defs) {
+      const n = stats.get(d.key)
+      if (n <= 0) continue
+      const pill = document.createElement('span')
+      pill.className = `status-pill ${d.cls}`
+      pill.textContent = `${d.icon} ${d.label} ${n}`
+      el.appendChild(pill)
+    }
   }
 
   function flash(text: string, duration = 0.8) {
@@ -254,10 +288,14 @@ export function startBattle() {
     if (!target || card.tier >= MAX_TIER) return
 
     const def = cards.require(card.cardId)
+    const meldCost = Math.min(def.cost * 2, MAX_ENERGY)
+    if (energy < meldCost) return
+
     const oldVal = scaledValue(def, card.tier)
     const newTier = card.tier + 1
     const newVal  = scaledValue(def, newTier)
 
+    energy -= meldCost
     heldIds.delete(card.id)
     heldIds.delete(target.id)
 
@@ -312,15 +350,18 @@ export function startBattle() {
         <span class="tier-badge t${card.tier}">${TIER_ROMAN[card.tier]}</span>
         <div class="icon">${def.icon}</div>
         <div class="name">${def.name}</div>
-        <div class="desc">${def.desc(val)}</div>
+        <div class="desc">${def.desc(val, card.tier)}</div>
         <div class="cost">⚡ ${def.cost}</div>
       `
 
       if (isPlayerTurn && !_animating) {
         if (hasMerge) {
+          const meldCost = Math.min(def.cost * 2, MAX_ENERGY)
+          const canAfford = energy >= meldCost
           const btn = document.createElement('button')
           btn.className = 'merge-btn'
-          btn.textContent = '⬆ MELD'
+          btn.textContent = `⬆ MELD (${meldCost}⚡)`
+          btn.disabled = !canAfford
           btn.addEventListener('click', e => { e.stopPropagation(); doMerge(card) })
           el.appendChild(btn)
         }
@@ -475,6 +516,7 @@ export function startBattle() {
   // ── Damage resolution ────────────────────────────────────────────────────
 
   function dealDamage(target: StatBlock, amount: number, worldPos?: THREE.Vector3): number {
+    if (target.get('vulnerable') > 0) amount = Math.ceil(amount * 1.5)
     const ab = target.get('absorb')
     let absorbed = 0
     if (ab > 0) {
@@ -532,9 +574,12 @@ export function startBattle() {
     const actorHdPos = actor.group.position.clone();  actorHdPos.y += 2.2
     const targetHdPos = target.group.position.clone(); targetHdPos.y += 2.2
 
+    const dmgValue = type === 'attack' && actorStats.get('weak') > 0
+      ? Math.floor(value * 0.75) : value
+
     if (type === 'attack') {
       ;(value >= 8 ? animFireball : animStrike)(actor, targetPos, () => {
-        dealDamage(targetStats, value, targetHdPos)
+        dealDamage(targetStats, dmgValue, targetHdPos)
         shake.addTrauma(trauma)
         animHit(target)
         vfx.burst(targetPos, 12, { speed: 1.8, spread: 0.8, up: 0.3, life: 0.4, size: 0.12, color })
@@ -576,13 +621,25 @@ export function startBattle() {
     function done() { setAnimating(false); renderHand(); checkDeath() }
     const safety = timer.after(3.0, () => { if (_animating) done() })
 
+    const tierIIIStatus = card.tier === MAX_TIER ? def.tierIIIStatus : undefined
+
     executeAction(player, playerStats, enemy, enemyStats, def.type, val, def.color, done, {
       safety,
       trauma:    0.3,
       postDelay: 0.22,
-      onLand:    def.type === 'attack' ? () => sfx.hit()
-               : def.type === 'defend' ? () => sfx.shield()
-               : () => sfx.heal(),
+      onLand: () => {
+        if (def.type === 'attack') sfx.hit()
+        else if (def.type === 'defend') sfx.shield()
+        else sfx.heal()
+        if (tierIIIStatus) {
+          const statusStats = tierIIIStatus.target === 'enemy' ? enemyStats : playerStats
+          statusStats.modify(tierIIIStatus.kind, tierIIIStatus.stacks)
+          const label = tierIIIStatus.kind === 'poison'     ? '☠ IGNITE'
+                      : tierIIIStatus.kind === 'vulnerable' ? '💔 BLEED'
+                      : '💀 WEAKENED'
+          flash(label, 0.7)
+        }
+      },
     })
   }
 
@@ -592,11 +649,14 @@ export function startBattle() {
     const def = ENCOUNTERS[idx]
     encounterIdx = idx
     ENEMY_MOVES = def.moves
-    enemyNextMove = def.moves[0]
 
     enemyStats.setMax('hp', def.hp)
     enemyStats.set('hp', def.hp)
     enemyStats.set('absorb', 0)
+    for (const s of ['vulnerable', 'poison', 'weak'] as const) {
+      playerStats.set(s, 0)
+      enemyStats.set(s, 0)
+    }
     enemy.body.material.emissiveIntensity = 0
     enemy.body.material.color.setHex(def.bodyColor)
     enemy.head.material.color.setHex(def.accentColor)
@@ -606,6 +666,7 @@ export function startBattle() {
     $enemyName.textContent = def.name
     $encounterInfo.textContent = `ENC ${idx + 1} / ${ENCOUNTERS.length}`
 
+    pickEnemyIntent()
     updateHUD()
     startPlayerTurn()
   }
@@ -629,6 +690,7 @@ export function startBattle() {
       const move = enemyNextMove
 
       function done() {
+        pickEnemyIntent()
         setAnimating(false)
         updateHUD()
         if (!checkDeath()) timer.after(0.3, startPlayerTurn)
@@ -643,6 +705,10 @@ export function startBattle() {
             void $hitVignette.offsetWidth
             $hitVignette.classList.add('flash')
             flash(`${move.name}!`, 0.6)
+            if (move.status) {
+              const statusStats = move.status.target === 'player' ? playerStats : enemyStats
+              statusStats.modify(move.status.kind, move.status.stacks)
+            }
           }
         : () => {
             move.type === 'heal' ? sfx.heal() : sfx.shield()
@@ -664,7 +730,31 @@ export function startBattle() {
     turnCount++
     energy = MAX_ENERGY
     playerStats.set('absorb', 0)
-    enemyStats.set('absorb', 0)
+    // enemy absorb persists until damaged through
+
+    // ── Status ticks ────────────────────────────────────────────
+    const playerPoison = playerStats.get('poison')
+    if (playerPoison > 0) {
+      const pos = player.group.position.clone(); pos.y += 2.2
+      dealDamage(playerStats, playerPoison, pos)
+      playerStats.modify('poison', -1)
+      animHit(player)
+    }
+    const enemyPoison = enemyStats.get('poison')
+    if (enemyPoison > 0) {
+      const pos = enemy.group.position.clone(); pos.y += 2.2
+      dealDamage(enemyStats, enemyPoison, pos)
+      enemyStats.modify('poison', -1)
+      animHit(enemy)
+    }
+    if (playerStats.get('vulnerable') > 0) playerStats.modify('vulnerable', -1)
+    if (enemyStats.get('vulnerable') > 0) enemyStats.modify('vulnerable', -1)
+    if (playerStats.get('weak') > 0) playerStats.modify('weak', -1)
+    if (enemyStats.get('weak') > 0) enemyStats.modify('weak', -1)
+
+    updateHUD()
+    if (checkDeath()) return
+    // ────────────────────────────────────────────────────────────
 
     const handSnapshot = [...deck.hand]
     for (const c of handSnapshot) {
@@ -679,7 +769,6 @@ export function startBattle() {
     gameState.set('player_turn')
     setAnimating(false)
     $hand.classList.remove('dimmed')
-    pickEnemyIntent()
     timer.after(0.45, () => $enemyIntent.classList.add('show'))
     flash(`TURN ${turnCount}`, 0.6)
     renderHand(true)
