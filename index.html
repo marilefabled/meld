@@ -3,10 +3,10 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>MELD — A Merging Card Battle</title>
-  <meta name="description" content="Fight three foes while melding identical cards into higher-tier powerhouses. A browser card battle game built with Three.js." />
-  <meta property="og:title" content="MELD" />
-  <meta property="og:description" content="Merge identical cards to climb tiers — Tier I → II → III — then fight harder foes with your fused deck. A fast browser card battle." />
+  <title>Meld to All Held</title>
+  <meta name="description" content="Meld cards. Hold everything. Fight three foes while climbing Tier I → II → III. A browser card battle built with Three.js." />
+  <meta property="og:title" content="Meld to All Held" />
+  <meta property="og:description" content="Meld cards. Hold everything. A card battle where merging is the move and holding is the mastery." />
   <meta property="og:type" content="website" />
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%230a0a18'/><text x='16' y='24' text-anchor='middle' font-family='monospace' font-weight='900' font-size='22' fill='%236366f1'>M</text></svg>" />
   <style>
@@ -25,38 +25,170 @@
     body:not(.game-active) #hand,
     body:not(.game-active) #deck-info,
     body:not(.game-active) #end-turn,
-    body:not(.game-active) #game-over {
+    body:not(.game-active) #game-over,
+    body:not(.game-active) #pause-btn {
       display: none !important;
     }
 
-    /* ── HUD rows ────────────────────────────────────────────── */
-    #hud { position: fixed; top: 0; left: 0; width: 100%; pointer-events: none; z-index: 10; }
+    /* ── HUD — two-column layout ─────────────────────────────── */
+    #hud {
+      position: fixed; top: 0; left: 0; width: 100%;
+      display: flex; justify-content: space-between; align-items: flex-start;
+      padding: 10px 16px; gap: 12px;
+      pointer-events: none; z-index: 10;
+    }
+
+    .hud-col {
+      display: flex; flex-direction: column; gap: 5px;
+      background: rgba(6,6,20,0.55);
+      backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+      border-radius: 12px; padding: 9px 14px;
+      border: 1px solid rgba(255,255,255,0.06);
+      box-shadow: 0 4px 20px rgba(0,0,0,0.4), inset 0 1px 0 rgba(200,220,255,0.05);
+    }
+    .hud-col.hud-e { align-items: flex-end; }
 
     .hp-row {
-      display: flex; align-items: center; gap: 10px;
-      padding: 12px 20px; font: bold 13px/1 'Segoe UI', sans-serif;
+      display: flex; align-items: center; gap: 8px;
+      font: bold 13px/1 'Segoe UI', sans-serif;
       color: #fff; text-shadow: 0 1px 4px rgba(0,0,0,.6);
     }
-    .hp-row.enemy { justify-content: flex-end; }
 
     .hp-bar-bg {
-      width: 200px; height: 13px; background: #1a1a2e; border-radius: 7px;
-      border: 1px solid rgba(255,255,255,.12); overflow: hidden;
+      width: 180px; height: 10px; background: rgba(255,255,255,0.07); border-radius: 6px;
+      border: 1px solid rgba(255,255,255,.08); overflow: hidden;
     }
-    .hp-bar { height: 100%; border-radius: 7px; transition: width .3s ease; }
-    .hp-bar.player { background: linear-gradient(90deg, #22d3ee, #3b82f6); }
-    .hp-bar.enemy  { background: linear-gradient(90deg, #f43f5e, #ef4444); }
+    .hp-bar { height: 100%; border-radius: 6px; transition: width .3s ease; }
+    .hp-bar.player { background: linear-gradient(90deg, #22d3ee, #3b82f6); box-shadow: 0 0 8px rgba(34,211,238,0.35); }
+    .hp-bar.enemy  { background: linear-gradient(90deg, #ef4444, #f43f5e); box-shadow: 0 0 8px rgba(239,68,68,0.35); }
     .hp-text {
-      min-width: 56px; font-variant-numeric: tabular-nums; font-size: 12px;
-      text-align: right; color: #cbd5e1;
+      min-width: 50px; font-variant-numeric: tabular-nums; font-size: 11px;
+      text-align: right; color: #94a3b8; letter-spacing: 0.02em;
     }
-    .hp-row.enemy .hp-text { text-align: left; }
+    .hud-e .hp-text { text-align: left; }
+
+    #enemy-name {
+      font: 800 10px/1 'Segoe UI', sans-serif; letter-spacing: .16em;
+      text-transform: uppercase; color: #7c8aa8;
+    }
+    .hud-label {
+      font: 700 10px/1 'Segoe UI', sans-serif; letter-spacing: .14em;
+      text-transform: uppercase; color: #6b7280;
+    }
 
     .block-badge {
-      display: inline-block; background: #7c3aed; color: #e9d5ff; font-size: 11px;
-      padding: 2px 7px; border-radius: 10px; opacity: 0; transition: opacity .2s;
+      display: inline-flex; align-items: center; gap: 3px;
+      background: linear-gradient(135deg, rgba(124,58,237,0.55), rgba(99,58,200,0.35));
+      border: 1px solid rgba(167,139,250,0.45);
+      color: #ddd6fe; font: 700 11px/1 'Segoe UI', sans-serif;
+      padding: 2px 7px 2px 6px; border-radius: 8px;
+      opacity: 0; transition: opacity .2s;
+      box-shadow: 0 0 8px rgba(124,58,237,0.25);
     }
     .block-badge.show { opacity: 1; }
+
+    /* ── Loadout screen ─────────────────────────────────────── */
+    .loadout-overlay {
+      position: fixed; inset: 0; z-index: 100;
+      background: rgba(2,1,10,.97);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      overflow-y: auto; padding: 2rem 1rem;
+      opacity: 0; transition: opacity .3s ease;
+    }
+    .loadout-overlay.visible { opacity: 1; }
+    .lo-title {
+      font: 900 18px/1 'Segoe UI', sans-serif; letter-spacing: .3em;
+      color: #a78bfa; text-shadow: 0 0 18px rgba(124,58,237,.6);
+      margin-bottom: .3rem;
+    }
+    .lo-subtitle {
+      font: 600 10px/1 'Segoe UI', sans-serif; letter-spacing: .25em;
+      color: #6d28d9; margin-bottom: 1.8rem;
+    }
+    /* ── Loadout: visual deck grid ───────────────────────── */
+    .lo-head { text-align: center; }
+    .lo-grid {
+      display: flex; flex-wrap: wrap; justify-content: center; gap: 12px;
+      max-width: 700px; margin: 1.4rem 0 1.6rem;
+    }
+    .lo-tile {
+      width: 120px; height: 138px; padding: 0 0 10px; overflow: hidden;
+      display: flex; flex-direction: column; align-items: center; gap: 5px;
+      background: linear-gradient(168deg, rgba(26,24,46,0.9), rgba(12,10,24,0.92));
+      border: 1px solid color-mix(in srgb, var(--cc) 26%, transparent);
+      border-radius: 14px; cursor: pointer; position: relative;
+      box-shadow: inset 0 1px 0 rgba(200,210,255,0.07), 0 12px 30px rgba(0,0,0,0.42);
+      transition: transform .16s, box-shadow .16s, border-color .16s;
+    }
+    .lo-tile:hover { transform: translateY(-4px); border-color: color-mix(in srgb, var(--cc) 55%, transparent); }
+    .lo-tile.sel {
+      border-color: var(--cc);
+      box-shadow: 0 0 0 1px var(--cc), 0 0 30px -4px var(--cc),
+                  inset 0 1px 0 rgba(200,210,255,0.12), 0 12px 30px rgba(0,0,0,0.5);
+    }
+    .lo-tile-cost {
+      position: absolute; top: 7px; right: 9px; z-index: 2;
+      font: 700 10px/1 'Segoe UI', sans-serif; color: #e2e8f0; opacity: .9;
+      text-shadow: 0 1px 3px rgba(0,0,0,.9);
+    }
+    .lo-tile-art {
+      position: relative; width: 100%; height: 66px; overflow: hidden;
+      border-bottom: 1px solid color-mix(in srgb, var(--cc) 30%, transparent); margin-bottom: 6px;
+    }
+    .lo-tile-art > svg { position: absolute; inset: 0; }
+    .lo-tile-glyph {
+      position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); width: 42px; height: 42px;
+    }
+    .lo-tile-glyph svg { width: 100%; height: 100%; filter: drop-shadow(0 0 7px var(--cc)) !important; }
+    .lo-tile-name { font: 700 11px/1 'Segoe UI', sans-serif; color: #e6ebff; letter-spacing: .04em; }
+    .lo-tile-pips { display: flex; gap: 4px; margin-top: auto; }
+    .lo-pip { width: 5px; height: 5px; border-radius: 50%; background: rgba(150,160,200,0.22); }
+    .lo-pip.open { background: rgba(150,170,255,0.5); box-shadow: 0 0 5px rgba(150,170,255,0.5); }
+    .lo-pip.alt  { background: var(--cc); box-shadow: 0 0 6px var(--cc); }
+
+    /* ── Selected card: three tiers as a mini-card strip ──── */
+    .lo-detail {
+      width: min(92vw, 560px); padding: 15px 18px 18px;
+      background: linear-gradient(168deg, rgba(22,24,46,0.78), rgba(10,11,24,0.86));
+      border: 1px solid color-mix(in srgb, var(--cc) 22%, rgba(150,170,255,0.12));
+      border-radius: 16px;
+      box-shadow: inset 0 1px 0 rgba(190,205,255,0.1), 0 18px 44px rgba(0,0,0,0.5);
+      backdrop-filter: blur(12px);
+    }
+    .lo-detail-head {
+      display: flex; align-items: center; justify-content: center; gap: 9px;
+      font: 800 13px/1 'Segoe UI', sans-serif; letter-spacing: .14em; text-transform: uppercase;
+      color: #eaeeff; margin-bottom: 14px;
+    }
+    .lo-detail-icon { width: 24px; height: 24px; display: inline-flex; filter: drop-shadow(0 0 7px var(--cc)); }
+    .lo-detail-icon svg { width: 100%; height: 100%; }
+    .lo-tcards { display: flex; gap: 10px; }
+    .lo-tcard {
+      flex: 1; padding: 11px 8px; text-align: center;
+      background: rgba(255,255,255,0.025);
+      border: 1px solid rgba(150,170,255,0.1); border-radius: 11px;
+    }
+    .lo-tcard.swap { border-color: color-mix(in srgb, var(--cc) 40%, transparent); }
+    .lo-tcard-tier { display:block; font: 700 8px/1 'Segoe UI', sans-serif; letter-spacing: .18em; color: #64748b; margin-bottom: 7px; }
+    .lo-tcard-name { display:block; font: 700 12px/1 'Segoe UI', sans-serif; color: color-mix(in srgb, var(--cc) 50%, #e2e8f0); margin-bottom: 4px; }
+    .lo-tcard-desc { display:block; font: 400 9.5px/1.3 'Segoe UI', sans-serif; color: #9aa6bd; min-height: 24px; }
+    .lo-tcard-nav { display:flex; align-items:center; justify-content:center; gap: 14px; margin-top: 6px; height: 16px; }
+    .lo-tc-arrow {
+      font-size: 15px; line-height: 1; background: none; border: none; cursor: pointer;
+      color: color-mix(in srgb, var(--cc) 70%, #94a3b8); padding: 0 2px;
+      transition: color .12s, transform .12s;
+    }
+    .lo-tc-arrow:hover:not([disabled]) { color: #fff; transform: scale(1.25); }
+    .lo-tc-arrow[disabled] { opacity: 0; pointer-events: none; }
+    .lo-lock { font-size: 11px; opacity: .32; }
+    .lo-fight {
+      margin-top: 1.8rem;
+      background: #7c3aed; color: #fff; border: none; border-radius: 8px;
+      padding: .7rem 3.2rem;
+      font: 800 13px/1 'Segoe UI', sans-serif; letter-spacing: .18em;
+      cursor: pointer; transition: background .15s, transform .12s;
+    }
+    .lo-fight:hover { background: #6d28d9; transform: scale(1.03); }
 
     /* ── Enemy select screen ────────────────────────────────── */
     .enemy-select {
@@ -91,9 +223,9 @@
 
     /* ── Status effect pills ────────────────────────────────── */
     .status-row {
-      display: flex; padding: 0 20px 3px; gap: 5px; min-height: 16px; flex-wrap: wrap;
+      display: flex; gap: 4px; min-height: 14px; flex-wrap: wrap;
     }
-    .status-row.enemy { justify-content: flex-end; }
+    .hud-e .status-row { justify-content: flex-end; }
     .status-pill {
       font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 8px;
       letter-spacing: .3px; opacity: .92;
@@ -107,13 +239,24 @@
 
     /* ── Enemy intent ────────────────────────────────────────── */
     #enemy-intent {
-      position: fixed; top: 48px; right: 20px; z-index: 10; pointer-events: none;
-      font: bold 12px/1.4 'Segoe UI', sans-serif; color: #fca5a5;
-      text-align: right; opacity: 0; transition: opacity .3s;
-      text-shadow: 0 0 8px rgba(239,68,68,.5);
+      pointer-events: none; text-align: right;
+      opacity: 0; transition: opacity .3s, transform .3s;
+      transform: translateY(-4px);
     }
-    #enemy-intent.show { opacity: 1; }
-    #enemy-intent .intent-label { font-size: 9px; color: #6b7280; letter-spacing: 1px; margin-bottom: 2px; }
+    #enemy-intent.show { opacity: 1; transform: none; }
+    #enemy-intent .intent-label { font: 800 9px/1 'Segoe UI', sans-serif; color: #6b7280; letter-spacing: 2px; margin-bottom: 5px; }
+    #enemy-intent .intent-chip {
+      display: inline-flex; align-items: center; gap: 8px; padding: 6px 11px 6px 7px; border-radius: 12px;
+      background: linear-gradient(135deg, color-mix(in srgb, var(--ic) 20%, #0a0a16) 0%, rgba(10,10,22,.85) 100%);
+      border: 1px solid color-mix(in srgb, var(--ic) 55%, transparent);
+      box-shadow: 0 4px 16px color-mix(in srgb, var(--ic) 26%, transparent), inset 0 0 0 1px rgba(255,255,255,.04);
+    }
+    #enemy-intent .intent-glyph { width: 26px; height: 26px; flex: none; }
+    #enemy-intent .intent-glyph svg { width: 100%; height: 100%; display: block; }
+    #enemy-intent .intent-name {
+      font: 800 13px/1 'Segoe UI', sans-serif; white-space: nowrap; letter-spacing: .3px;
+      color: color-mix(in srgb, var(--ic) 32%, #fff); text-shadow: 0 0 9px color-mix(in srgb, var(--ic) 45%, transparent);
+    }
 
     /* ── Turn banner ─────────────────────────────────────────── */
     #banner {
@@ -133,23 +276,51 @@
     #hand.dimmed { opacity: .2; pointer-events: none; }
 
     .card {
-      width: 112px; padding: 12px 9px 10px;
-      background: linear-gradient(135deg, #1e1b4b, #312e81);
-      border: 2px solid #6366f1; border-radius: 11px; color: #e0e7ff;
+      width: 116px; padding: 0 7px 8px;
+      background: linear-gradient(180deg, rgba(20,20,42,0.96), rgba(10,10,22,0.98));
+      border: 1px solid color-mix(in srgb, var(--cc,#6366f1) 45%, rgba(120,140,255,0.22));
+      border-radius: 12px; color: #e0e7ff; overflow: hidden;
       text-align: center; cursor: pointer; user-select: none;
       font-family: 'Segoe UI', sans-serif; position: relative;
+      box-shadow: inset 0 1px 0 rgba(200,210,255,0.08), 0 10px 26px rgba(0,0,0,0.5);
       transition: transform .15s, box-shadow .15s, border-color .15s;
     }
     .card:hover {
-      transform: translateY(-13px) rotateX(-4deg);
-      box-shadow: 0 10px 28px rgba(99,102,241,.45); border-color: #a5b4fc;
+      transform: translateY(-14px) rotateX(-5deg);
+      box-shadow: 0 16px 34px rgba(0,0,0,0.55), 0 0 26px -6px var(--cc,#6366f1);
+      border-color: color-mix(in srgb, var(--cc,#6366f1) 78%, white);
     }
-    .card:active { transform: translateY(-5px) scale(.97); }
-    .card.disabled { opacity: .3; pointer-events: none; }
-    .card .icon  { font-size: 26px; margin-bottom: 5px; }
-    .card .name  { font-weight: 700; font-size: 12px; margin-bottom: 3px; }
-    .card .desc  { font-size: 11px; color: #a5b4fc; line-height: 1.3; }
-    .card .cost  { font-size: 10px; color: #818cf8; margin-top: 5px; }
+    .card:active { transform: translateY(-6px) scale(.97); }
+    .card.disabled { opacity: .32; pointer-events: none; }
+    /* freshly forged card — a luminous aura in its own colour as it emerges */
+    .card.forged {
+      border-color: color-mix(in srgb, var(--cc,#6366f1) 85%, white) !important;
+      box-shadow: 0 0 0 1px color-mix(in srgb, var(--cc,#6366f1) 70%, transparent),
+                  0 0 38px 6px color-mix(in srgb, var(--cc,#6366f1) 55%, transparent),
+                  0 12px 30px rgba(0,0,0,0.55) !important;
+    }
+
+    /* art window — generative energy field + glowing glyph centrepiece */
+    .card-art {
+      position: relative; height: 64px; margin: 0 -7px 6px; overflow: hidden;
+      border-bottom: 1px solid color-mix(in srgb, var(--cc,#6366f1) 32%, transparent);
+    }
+    .card-art > svg { position: absolute; inset: 0; }
+    .card-glyph {
+      position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+      width: 50px; height: 50px;
+    }
+    .card-glyph svg { width: 100%; height: 100%; filter: drop-shadow(0 0 7px var(--cc,#6366f1)) !important; }
+    .card-gem {
+      position: absolute; top: 6px; left: 7px; z-index: 2;
+      font: 800 10px/1 'Segoe UI', sans-serif; color: #fff; letter-spacing: .01em;
+      background: color-mix(in srgb, var(--cc,#6366f1) 55%, #0a0a18);
+      border: 1px solid color-mix(in srgb, var(--cc,#6366f1) 85%, white);
+      border-radius: 7px; padding: 3px 5px;
+      box-shadow: 0 0 8px -1px var(--cc,#6366f1);
+    }
+    .card .name  { font-weight: 700; font-size: 12px; letter-spacing: .03em; margin: 1px 0 3px; }
+    .card .desc  { font-size: 10.5px; color: #aab6e8; line-height: 1.3; }
 
     /* ── Tier styling ─────────────────────────────────────────── */
     .card.tier-2 { border-color: #f59e0b; background: linear-gradient(135deg, #1c1a0e, #292210); }
@@ -161,7 +332,7 @@
       0%,100% { box-shadow: 0 0 8px rgba(239,68,68,.3); }
       50%     { box-shadow: 0 0 18px rgba(239,68,68,.7); }
     }
-    .tier-badge { position: absolute; top: 5px; right: 7px; font-size: 10px; font-weight: 900; letter-spacing: 1px; }
+    .tier-badge { position: absolute; top: 6px; right: 8px; z-index: 2; font-size: 10px; font-weight: 900; letter-spacing: 1px; text-shadow: 0 1px 4px rgba(0,0,0,.9); }
     .tier-badge.t1 { color: #818cf8; }
     .tier-badge.t2 { color: #f59e0b; }
     .tier-badge.t3 { color: #ef4444; }
@@ -184,7 +355,67 @@
       box-shadow: 0 0 12px rgba(167,139,250,.5);
     }
     .card.held .hold-btn { background: rgba(167,139,250,.25); color: #c4b5fd; border-color: #a78bfa; }
-    .hold-badge { position: absolute; top: 5px; left: 7px; font-size: 9px; font-weight: 900; color: #a78bfa; letter-spacing: 1px; }
+    .hold-badge { position: absolute; top: 5px; left: 50%; transform: translateX(-50%); z-index: 2;
+      font-size: 8px; font-weight: 900; color: #ede9fe; letter-spacing: 1px; padding: 2px 6px;
+      background: rgba(124,58,237,.7); border-radius: 5px; box-shadow: 0 0 8px rgba(167,139,250,.6); }
+
+    /* ── Big card preview (hover) ─────────────────────────────── */
+    #card-preview {
+      position: fixed; z-index: 400; width: 224px; pointer-events: none;
+      opacity: 0; transform: translateY(6px) scale(.96);
+      transition: opacity .14s ease, transform .14s ease;
+    }
+    #card-preview.show { opacity: 1; transform: translateY(0) scale(1); }
+    .bc {
+      position: relative; padding: 0 0 14px; border-radius: 16px; overflow: hidden;
+      background: linear-gradient(180deg, rgba(22,22,44,0.98), rgba(10,10,22,0.99));
+      border: 1px solid color-mix(in srgb, var(--cc) 60%, rgba(120,140,255,0.3));
+      box-shadow: 0 22px 60px rgba(0,0,0,0.7), 0 0 40px -8px var(--cc);
+      font-family: 'Segoe UI', sans-serif; text-align: center; color: #e6ebff;
+    }
+    .bc-art {
+      position: relative; height: 132px; overflow: hidden; margin-bottom: 12px;
+      border-bottom: 1px solid color-mix(in srgb, var(--cc) 34%, transparent);
+    }
+    .bc-art > svg { position: absolute; inset: 0; }
+    .bc-glyph { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); width: 84px; height: 84px; }
+    .bc-glyph svg { width: 100%; height: 100%; filter: drop-shadow(0 0 12px var(--cc)) !important; }
+    .bc-gem {
+      position: absolute; top: 9px; left: 10px; z-index: 2;
+      font: 800 13px/1 'Segoe UI', sans-serif; color: #fff; padding: 4px 7px; border-radius: 8px;
+      background: color-mix(in srgb, var(--cc) 58%, #0a0a18);
+      border: 1px solid color-mix(in srgb, var(--cc) 85%, white);
+      box-shadow: 0 0 10px -1px var(--cc);
+    }
+    .bc-tier {
+      position: absolute; top: 10px; right: 12px; z-index: 2; font: 900 14px/1 'Segoe UI', sans-serif;
+      color: color-mix(in srgb, var(--cc) 60%, white); text-shadow: 0 1px 4px rgba(0,0,0,.9);
+    }
+    .bc-name { font: 800 17px/1 'Segoe UI', sans-serif; letter-spacing: .04em; margin: 2px 0 5px; }
+    .bc-kind {
+      font: 700 8.5px/1 'Segoe UI', sans-serif; letter-spacing: .22em; text-transform: uppercase;
+      color: color-mix(in srgb, var(--cc) 55%, #8b93a8); margin-bottom: 9px;
+    }
+    .bc-desc { font: 600 12px/1.4 'Segoe UI', sans-serif; color: #c4cdf0; padding: 0 14px; }
+
+    /* ── Living card art — motifs subtly drift / flicker / breathe ─ */
+    .ca-motif, .ca-motes { transform-box: fill-box; transform-origin: center; }
+    @keyframes caSpin    { to { transform: rotate(360deg); } }
+    @keyframes caSpinCcw { to { transform: rotate(-360deg); } }
+    @keyframes caPulse   { 0%,100% { transform: scale(1); opacity: .85; } 50% { transform: scale(1.07); opacity: 1; } }
+    @keyframes caFlick   { 0%,100% { opacity: .82; } 25% { opacity: 1; } 45% { opacity: .62; } 65% { opacity: 1; } 80% { opacity: .8; } }
+    @keyframes caZap     { 0%,38%,100% { opacity: .5; } 40% { opacity: 1; } 43% { opacity: .32; } 46% { opacity: .95; } 49% { opacity: .55; } }
+    @keyframes caTwinkle { 0%,100% { opacity: .55; } 50% { opacity: 1; } }
+    .ca-strike   { animation: caSpin    34s linear infinite; }
+    .ca-slash    { animation: caSpinCcw 40s linear infinite; }
+    .ca-ward     { animation: caSpin    44s linear infinite; }
+    .ca-absorb   { animation: caPulse    5s ease-in-out infinite; }
+    .ca-fireball { animation: caFlick   1.8s ease-in-out infinite; }
+    .ca-overload { animation: caZap     2.6s steps(1, end) infinite; }
+    .ca-motes    { animation: caTwinkle 3.5s ease-in-out infinite; }
+    @media (prefers-reduced-motion: reduce) {
+      .ca-motif, .ca-motes { animation: none !important; }
+    }
 
     /* ── Energy pips ──────────────────────────────────────────── */
     #energy {
@@ -227,19 +458,39 @@
     }
     #end-turn:hover { background: #6366f1; }
     #end-turn.disabled { opacity: .3; pointer-events: none; }
+    /* Out of energy → glow/pulse to invite ending the turn. */
+    #end-turn.ready { animation: endTurnPulse 1.15s ease-in-out infinite; }
+    @keyframes endTurnPulse {
+      0%, 100% { background: #4f46e5; box-shadow: 0 0 0 0 rgba(129,140,248,0); }
+      50%      { background: #6d6cff;
+                 box-shadow: 0 0 20px 3px rgba(129,140,248,.75), 0 0 44px rgba(129,140,248,.4); }
+    }
 
     /* ── Floating damage numbers ──────────────────────────────── */
+    .dmg-wrap {
+      position: fixed; z-index: 50; pointer-events: none;
+      transform: translateX(-50%); will-change: transform;
+    }
     .dmg-float {
-      position: fixed; pointer-events: none; z-index: 50;
-      font: bold 22px/1 'Segoe UI', sans-serif;
-      text-shadow: 0 2px 6px rgba(0,0,0,.8);
-      animation: dmgrise .85s ease-out forwards;
+      font: 800 32px/1 'Segoe UI', system-ui, sans-serif;
+      letter-spacing: -.5px; white-space: nowrap;
+      text-shadow:
+        0 0 18px currentColor,
+        0 2px 0 rgba(0,0,0,.5), 0 3px 1px rgba(0,0,0,.55),
+        0 7px 16px rgba(0,0,0,.75);
+      will-change: transform, opacity;
+      animation: dmgrise 1.5s cubic-bezier(.16,.9,.3,1) forwards;
     }
+    /* pops up out of the floor in 3D, overshoots, settles, drifts, fades */
     @keyframes dmgrise {
-      0%   { transform: translateY(0)    scale(1.2); opacity: 1; }
-      55%  { transform: translateY(-48px) scale(1);  opacity: 1; }
-      100% { transform: translateY(-72px) scale(.8); opacity: 0; }
+      0%   { transform: perspective(520px) translateY(10px)  scale(.35) rotateX(62deg); opacity: 0; }
+      15%  { transform: perspective(520px) translateY(-10px) scale(1.3)  rotateX(0deg);  opacity: 1; }
+      30%  { transform: perspective(520px) translateY(-24px) scale(1); }
+      72%  { transform: perspective(520px) translateY(-66px) scale(1);    opacity: 1; }
+      100% { transform: perspective(520px) translateY(-104px) scale(.9);  opacity: 0; }
     }
+    .dmg-float-medium { font-size: 44px; }
+    .dmg-float-big    { font-size: 62px; font-weight: 900; letter-spacing: -2px; }
 
     /* ── HP bar hit flash ────────────────────────────────────── */
     @keyframes hpflash {
@@ -247,6 +498,24 @@
       100% { filter: brightness(1); }
     }
     .hp-bar.damaged { animation: hpflash 0.38s ease-out; }
+
+    /* ── Absorb shield pulse ─────────────────────────────────── */
+    @keyframes shieldAbsorb {
+      0%   { transform: scale(1);    filter: brightness(1); }
+      22%  { transform: scale(1.55); filter: brightness(2.8); }
+      100% { transform: scale(1);    filter: brightness(1); }
+    }
+    .block-badge.absorb-hit {
+      opacity: 1 !important;
+      animation: shieldAbsorb 0.38s ease-out;
+    }
+
+    /* ── AP→Draw deck flash ──────────────────────────────────── */
+    @keyframes deckPulse {
+      0%, 100% { color: #4b5563; }
+      35%      { color: #6ee7b7; }
+    }
+    #deck-info.ap-pulse { animation: deckPulse 0.55s ease; }
 
     /* ── Low HP warning ──────────────────────────────────────── */
     @keyframes hplow {
@@ -281,9 +550,8 @@
 
     /* ── Encounter counter (top-right) ──────────────────────── */
     #encounter-info {
-      position: fixed; top: 10px; right: 26px; z-index: 10;
-      font: bold 11px/1 'Segoe UI', sans-serif; color: #4b5563;
-      pointer-events: none; letter-spacing: 1px;
+      font: 700 10px/1 'Segoe UI', sans-serif; color: #475569;
+      pointer-events: none; letter-spacing: .14em; text-transform: uppercase;
     }
 
     /* ── Game over ────────────────────────────────────────────── */
@@ -304,6 +572,10 @@
     /* ── Title screen overrides ───────────────────────────────── */
     .meld-title {
       text-align: center;
+      /* transparent so the 3D title scene (canvas behind, z1) shows through */
+      background: transparent !important;
+      border-color: transparent !important;
+      box-shadow: none !important;
     }
     .meld-title .ms-title {
       font-size: 3.8rem !important;
@@ -328,46 +600,545 @@
       letter-spacing: .28em !important;
     }
 
-    /* ── How To Play menu — legible body text ─────────────────── */
-    .meld-how-to .ms-hdr {
-      font-size: .84rem !important;
-      letter-spacing: .03em !important;
-      color: rgba(195, 210, 255, .78) !important;
-      text-transform: none !important;
-      padding: 3px 20px !important;
+    /* ── Title meld: letters drift in from scattered 3D space and coalesce ── */
+    .meld-title .ms-title.meld-3d {
+      perspective: 1000px;
+      perspective-origin: 50% 50%;
+      padding-right: 0 !important;   /* per-line centering handles spacing now */
     }
-    /* Section labels keep their own decoration (— CARDS —) so
-       they read as distinct even without different font styling.
-       Bump them slightly to anchor sections. */
-    .meld-how-to .ms-sep + .ms-hdr {
-      padding-top: 8px !important;
+    .meld-title .ms-line {
+      display: block;
+      white-space: nowrap;   /* keep each word's letters on one line (no mid-word wrap) */
+      transform-style: preserve-3d;
+      line-height: 1.05;
     }
-    .meld-how-to .ms-items > .ms-hdr:first-child {
-      padding-top: 0 !important;
+    .meld-title .ms-ltr {
+      display: inline-block;
+      transform-style: preserve-3d;
+      will-change: transform, opacity;
+      transition: transform 1.9s cubic-bezier(.18,.7,.2,1), opacity 1.3s ease;
+    }
+    @keyframes meldFloat {
+      0%, 100% { transform: translateZ(0); }
+      50%      { transform: translateZ(16px); }
+    }
+    .meld-title .ms-ltr.settled {
+      animation: meldFloat 7s ease-in-out infinite;
+    }
+
+    /* ── Premium glass panels (every menu card but the transparent title) ── */
+    .ms-card:not(.meld-title) {
+      background: linear-gradient(168deg, rgba(22,25,48,0.86), rgba(9,10,22,0.93)) !important;
+      border: 1px solid rgba(150,175,255,0.16) !important;
+      border-radius: 16px !important;
+      backdrop-filter: blur(18px) saturate(1.2);
+      -webkit-backdrop-filter: blur(18px) saturate(1.2);
+      box-shadow:
+        inset 0 1px 0 rgba(190,205,255,0.14),
+        inset 0 0 42px rgba(90,120,255,0.05),
+        0 30px 80px rgba(0,0,0,0.62),
+        0 0 70px rgba(90,115,255,0.13) !important;
+      position: relative;
+    }
+    .ms-card:not(.meld-title)::before {   /* luminous top edge */
+      content:''; position:absolute; top:0; left:20%; right:20%; height:1px;
+      background: linear-gradient(90deg, transparent, rgba(165,185,255,0.7), transparent);
+    }
+    .ms-card:not(.meld-title) .ms-title {
+      color: rgba(188,202,255,0.92) !important;
+      text-shadow: 0 0 20px rgba(125,145,255,0.5);
+      padding-bottom: 14px;
+      margin-bottom: 20px !important;
+      position: relative;
+    }
+    .ms-card:not(.meld-title) .ms-title::after {   /* accent divider under title */
+      content:''; position:absolute; bottom:0; left:50%; transform:translateX(-50%);
+      width:46px; height:1px;
+      background: linear-gradient(90deg, transparent, rgba(155,178,255,0.85), transparent);
+    }
+
+    /* ── How To Play — the codex ─────────────────────────────── */
+    .meld-how-to { width: min(92vw, 472px) !important; }
+    .htp { display:flex; flex-direction:column; gap:20px; text-align:left; padding-top:2px; }
+    .htp-sec { display:flex; flex-direction:column; gap:5px; }
+    .htp-hd {
+      display:flex; align-items:center; gap:11px;
+      font:700 .6rem/1 'Courier New', monospace;
+      letter-spacing:.34em; text-transform:uppercase;
+      color:#aeb9ff; text-shadow:0 0 16px rgba(130,150,255,0.6);
+      margin-bottom:5px;
+    }
+    .htp-hd::after {
+      content:''; flex:1; height:1px;
+      background: linear-gradient(90deg, rgba(150,172,255,0.42), transparent);
+    }
+    .htp-gem {
+      width:6px; height:6px; border-radius:50%; flex-shrink:0;
+      background:#9aa8ff; box-shadow:0 0 9px rgba(150,168,255,0.95);
+    }
+    .htp p {
+      margin:0; padding-left:17px;
+      font:400 .82rem/1.62 'Segoe UI', system-ui, sans-serif;
+      color: rgba(206,217,255,0.72); letter-spacing:.012em;
+    }
+    .htp em { font-style:normal; color:#cfd8ff; }
+    .htp b  { font-weight:600; color:#bcc6ff; text-shadow:0 0 10px rgba(125,145,255,0.4); }
+    .htp-arr { color: rgba(150,170,255,0.55); margin:0 3px; }
+    .htp-meld {
+      display:inline-block; padding:1px 9px; margin:0 1px; border-radius:5px;
+      background: rgba(99,102,241,0.2); border:1px solid rgba(150,170,255,0.42);
+      color:#d3dbff; font:700 .72rem/1.4 'Courier New', monospace; letter-spacing:.14em;
+      text-shadow:0 0 11px rgba(150,170,255,0.7);
+    }
+    .htp-x {
+      display:inline-block; padding:0 7px; border-radius:4px; margin-left:3px;
+      background: rgba(34,211,238,0.13); color:#86e9ff;
+      font:700 .74rem/1.5 'Courier New', monospace;
+      box-shadow: inset 0 0 12px rgba(34,211,238,0.18);
+    }
+    .htp-goal {
+      color:#c2ccff !important; font-style:italic;
+      text-shadow:0 0 12px rgba(130,150,255,0.4);
+    }
+
+    /* Title-screen buttons sit on the dark 3D scene — give them a touch of glow. */
+    .meld-title .ms-btn { text-shadow: 0 0 12px rgba(120,150,255,0.28); }
+
+    /* ── Reward screen ───────────────────────────────────────── */
+    .reward-overlay {
+      position: fixed; inset: 0; z-index: 110;
+      background: rgba(2,1,10,.95);
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 28px;
+      opacity: 0; transition: opacity .3s ease;
+    }
+    .reward-overlay.visible { opacity: 1; }
+    .rw-title {
+      font: 900 20px/1 'Segoe UI', sans-serif; letter-spacing: .3em;
+      color: #22d3ee; text-shadow: 0 0 20px rgba(34,211,238,.5);
+    }
+    .rw-sub { font: 600 11px/1 'Segoe UI', sans-serif; color: #4b5563; letter-spacing: .15em; }
+    .rw-options { display: flex; gap: 18px; }
+    .rw-option {
+      width: 190px; padding: 22px 16px; background: rgba(15,10,35,.9);
+      border: 1px solid rgba(99,102,241,.25); border-radius: 12px;
+      cursor: pointer; color: #e2e8f0; text-align: center;
+      transition: border-color .15s, transform .15s, box-shadow .15s;
+    }
+    .rw-option:hover {
+      border-color: #6366f1; transform: translateY(-4px);
+      box-shadow: 0 8px 24px rgba(99,102,241,.3);
+    }
+    .rw-icon  { width: 48px; height: 48px; margin: 0 auto 10px; display: block; }
+    .rw-label { font: 700 12px/1.3 'Segoe UI', sans-serif; color: #c4b5fd; margin-bottom: 6px; }
+    .rw-desc  { font: 400 10px/1.4 'Segoe UI', sans-serif; color: #6b7280; }
+    /* card-reward options get a full art window */
+    .rw-card { padding-top: 0 !important; overflow: hidden; }
+    .rw-art {
+      position: relative; height: 78px; margin: 0 -16px 14px; overflow: hidden;
+      border-bottom: 1px solid color-mix(in srgb, var(--cc) 32%, transparent);
+    }
+    .rw-art > svg { position: absolute; inset: 0; }
+    .rw-glyph { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); width: 54px; height: 54px; }
+    .rw-glyph svg { width: 100%; height: 100%; filter: drop-shadow(0 0 8px var(--cc)) !important; }
+
+    /* ── Modifier select screen ──────────────────────────────── */
+    .modifier-overlay {
+      position: fixed; inset: 0; z-index: 110;
+      background: rgba(2,1,10,.95);
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 24px;
+      opacity: 0; transition: opacity .3s ease;
+    }
+    .modifier-overlay.visible { opacity: 1; }
+    .mod-title {
+      font: 900 20px/1 'Segoe UI', sans-serif; letter-spacing: .3em;
+      color: #f59e0b; text-shadow: 0 0 20px rgba(245,158,11,.4);
+    }
+    .mod-sub { font: 600 11px/1 'Segoe UI', sans-serif; color: #4b5563; letter-spacing: .15em; }
+    .mod-options { display: flex; gap: 16px; }
+    .mod-option {
+      width: 200px; padding: 24px 18px; background: rgba(15,10,25,.9);
+      border: 1px solid rgba(245,158,11,.2); border-radius: 12px;
+      cursor: pointer; color: #e2e8f0; text-align: center;
+      transition: border-color .15s, transform .15s, box-shadow .15s;
+    }
+    .mod-option:hover {
+      border-color: #f59e0b; transform: translateY(-4px);
+      box-shadow: 0 8px 24px rgba(245,158,11,.25);
+    }
+    .mod-icon   { width: 52px; height: 52px; margin: 0 auto 10px; display: block; }
+    .mod-name   { font: 800 13px/1 'Segoe UI', sans-serif; color: #fcd34d; margin-bottom: 6px; }
+    .mod-desc   { font: 600 11px/1.3 'Segoe UI', sans-serif; color: #e2e8f0; margin-bottom: 8px; }
+    .mod-flavor { font: 400 10px/1.4 'Segoe UI', sans-serif; color: #6b7280; font-style: italic; }
+    .mod-skip {
+      background: none; border: none; color: #4b5563; font: 600 12px/1 'Segoe UI', sans-serif;
+      cursor: pointer; letter-spacing: .05em; padding: 4px 8px;
+      transition: color .15s;
+    }
+    .mod-skip:hover { color: #9ca3af; }
+
+    /* ── Collection / shop screen ────────────────────────────── */
+    .shop-overlay {
+      position: fixed; inset: 0; z-index: 210;   /* above the title menu (z200) — Collection opens while it's still up */
+      background: rgba(2,1,10,.97);
+      display: flex; flex-direction: column; align-items: center;
+      overflow-y: auto; padding: 2rem 1rem 3rem;
+      opacity: 0; transition: opacity .3s ease;
+    }
+    .shop-overlay.visible { opacity: 1; }
+    .sh-header {
+      display: flex; align-items: center; justify-content: space-between;
+      width: 100%; max-width: 900px; margin-bottom: 1.8rem;
+    }
+    .sh-title {
+      font: 900 18px/1 'Segoe UI', sans-serif; letter-spacing: .3em;
+      color: #a78bfa; text-shadow: 0 0 18px rgba(124,58,237,.6);
+    }
+    .sh-meta { display: flex; align-items: center; gap: 16px; }
+    .sh-count { font: 700 11px/1 'Segoe UI', sans-serif; color: #6b7280; letter-spacing: .08em; }
+    .sh-frags { font: 800 15px/1 'Segoe UI', sans-serif; color: #fcd34d; text-shadow: 0 0 12px rgba(252,211,77,.4); }
+    .sh-grid {
+      display: flex; flex-wrap: wrap; gap: 14px;
+      justify-content: center; max-width: 900px; width: 100%; margin-bottom: 1.5rem;
+    }
+    .sh-card {
+      width: 150px; padding: 10px 10px 12px; border-radius: 13px;
+      background: linear-gradient(160deg, color-mix(in srgb, var(--cc) 16%, #0b0a17) 0%, rgba(11,9,22,.92) 70%);
+      border: 1px solid color-mix(in srgb, var(--cc) 42%, transparent);
+      box-shadow: 0 4px 18px rgba(0,0,0,.4), inset 0 0 0 1px rgba(255,255,255,.03);
+      transition: transform .14s ease, box-shadow .14s ease, border-color .14s ease;
+    }
+    .sh-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 10px 26px color-mix(in srgb, var(--cc) 28%, transparent), inset 0 0 0 1px rgba(255,255,255,.05);
+      border-color: color-mix(in srgb, var(--cc) 70%, transparent);
+    }
+    .sh-card.locked { opacity: .72; }
+    .sh-card.owned  { border-color: color-mix(in srgb, var(--cc) 55%, transparent); }
+    .sh-card-art {
+      position: relative; height: 80px; border-radius: 9px; overflow: hidden;
+      margin-bottom: 8px; border: 1px solid color-mix(in srgb, var(--cc) 30%, transparent);
+    }
+    .sh-card-glyph {
+      position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+      width: 46px; height: 46px;
+    }
+    .sh-card-glyph svg { width: 100%; height: 100%; filter: drop-shadow(0 0 7px var(--cc)) !important; }
+    .sh-card-tier {
+      position: absolute; top: 5px; right: 7px; z-index: 2;
+      font: 900 11px/1 'Segoe UI', sans-serif; color: #fff; letter-spacing: .5px;
+      text-shadow: 0 1px 4px rgba(0,0,0,.9);
+    }
+    .sh-card-seal {
+      position: absolute; top: 5px; left: 6px; z-index: 2;
+      width: 16px; height: 16px; border-radius: 50%; display: grid; place-items: center;
+      font: 900 10px/1 'Segoe UI', sans-serif; color: #04140a;
+      background: #4ade80; box-shadow: 0 0 8px rgba(74,222,128,.6);
+    }
+    .sh-card-name { font: 800 12px/1.2 'Segoe UI', sans-serif; color: #e5e0ff; margin-bottom: 3px; }
+    .sh-card-sub  { font: 500 9.5px/1.35 'Segoe UI', sans-serif; color: #8b8aa8; margin-bottom: 9px; min-height: 26px; }
+    .sh-badge {
+      font: 800 9px/1 'Segoe UI', sans-serif; letter-spacing: .1em; text-align: center;
+      color: #4ade80; padding: 5px 7px; border-radius: 6px;
+      background: rgba(34,197,94,.12); border: 1px solid rgba(34,197,94,.25); display: block;
+    }
+    .sh-buy {
+      width: 100%; padding: 6px; background: color-mix(in srgb, var(--cc) 16%, transparent);
+      border: 1px solid color-mix(in srgb, var(--cc) 60%, transparent); border-radius: 7px;
+      color: #fcd34d; font: 800 12px/1 'Segoe UI', sans-serif; cursor: pointer;
+      transition: background .12s, box-shadow .12s;
+    }
+    .sh-buy:hover:not(:disabled) { background: color-mix(in srgb, var(--cc) 32%, transparent); box-shadow: 0 0 12px color-mix(in srgb, var(--cc) 40%, transparent); }
+    .sh-buy:disabled { opacity: .35; cursor: default; color: #6b7280; }
+    .sh-back {
+      background: none; border: none; color: #4b5563; font: 600 12px/1 'Segoe UI', sans-serif;
+      cursor: pointer; letter-spacing: .05em; padding: 4px 8px;
+      transition: color .15s;
+    }
+    .sh-back:hover { color: #9ca3af; }
+
+    /* ── Class select screen ─────────────────────────────────── */
+    .class-select-overlay {
+      position: fixed; inset: 0; z-index: 110;
+      background: rgba(2,1,10,.97);
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px;
+      opacity: 0; transition: opacity .35s ease;
+    }
+    .class-select-overlay.visible { opacity: 1; }
+    .cs-eyebrow {
+      font: 600 10px/1 'Segoe UI', sans-serif; letter-spacing: .3em;
+      color: #4b5563;
+    }
+    .cs-title {
+      font: 900 22px/1 'Segoe UI', sans-serif; letter-spacing: .28em;
+      color: #a5b4fc; text-shadow: 0 0 24px rgba(99,102,241,.6);
+    }
+    .cs-body {
+      font: 400 12px/1.5 'Segoe UI', sans-serif; color: #6b7280;
+      max-width: 440px; text-align: center;
+    }
+    .cs-options { display: flex; gap: 18px; }
+    .cs-option {
+      width: 210px; padding: 26px 18px; background: rgba(15,10,35,.9);
+      border: 1px solid rgba(99,102,241,.2); border-radius: 12px;
+      cursor: pointer; color: #e2e8f0; text-align: center;
+      transition: border-color .18s, transform .18s, box-shadow .18s;
+    }
+    .cs-option:hover {
+      border-color: #6366f1; transform: translateY(-5px);
+      box-shadow: 0 10px 28px rgba(99,102,241,.28);
+    }
+    .cs-icon     { width: 64px; height: 64px; margin: 0 auto 12px; display: block; }
+    .cs-name     { font: 900 15px/1 'Segoe UI', sans-serif; letter-spacing: .12em; margin-bottom: 4px; }
+    .cs-role     { font: 700 10px/1 'Segoe UI', sans-serif; color: #818cf8; letter-spacing: .2em; margin-bottom: 10px; }
+    .cs-stat     { font: 600 11px/1 'Segoe UI', sans-serif; color: #4b5563; margin-bottom: 10px; }
+    .cs-flavor   { font: 400 10px/1.4 'Segoe UI', sans-serif; color: #6b7280; font-style: italic; }
+
+    /* ── Evolution screen ────────────────────────────────────── */
+    .evolution-overlay {
+      position: fixed; inset: 0; z-index: 110;
+      background: rgba(2,1,10,.97);
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px;
+      opacity: 0; transition: opacity .35s ease;
+    }
+    .evolution-overlay.visible { opacity: 1; }
+    .evo-eyebrow {
+      font: 600 10px/1 'Segoe UI', sans-serif; letter-spacing: .3em; color: #4b5563;
+    }
+    .evo-title {
+      font: 900 22px/1 'Segoe UI', sans-serif; letter-spacing: .28em;
+      color: #34d399; text-shadow: 0 0 24px rgba(52,211,153,.4);
+    }
+    .evo-body {
+      font: 400 12px/1.5 'Segoe UI', sans-serif; color: #6b7280;
+      max-width: 440px; text-align: center;
+    }
+    .evo-options { display: flex; gap: 16px; flex-wrap: wrap; justify-content: center; max-width: 760px; }
+    .evo-option {
+      width: 215px; padding: 24px 18px; background: rgba(10,20,20,.9);
+      border: 1px solid rgba(52,211,153,.2); border-radius: 12px;
+      cursor: pointer; color: #e2e8f0; text-align: center;
+      transition: border-color .18s, transform .18s, box-shadow .18s;
+    }
+    .evo-option:hover {
+      border-color: #34d399; transform: translateY(-5px);
+      box-shadow: 0 10px 28px rgba(52,211,153,.2);
+    }
+    .evo-icon   { width: 52px; height: 52px; margin: 0 auto 10px; display: block; }
+    .evo-label  { font: 800 12px/1 'Segoe UI', sans-serif; color: #6ee7b7; letter-spacing: .12em; margin-bottom: 8px; }
+    .evo-desc   { font: 600 11px/1.3 'Segoe UI', sans-serif; color: #e2e8f0; margin-bottom: 8px; }
+    .evo-flavor { font: 400 10px/1.4 'Segoe UI', sans-serif; color: #4b5563; font-style: italic; }
+
+    /* ── Campaign complete ─────────────────────────────── */
+    .campaign-complete-overlay {
+      position: fixed; inset: 0; z-index: 200;
+      background: rgba(2,1,10,1);
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 32px;
+      opacity: 0; transition: opacity .6s ease;
+    }
+    .campaign-complete-overlay.visible { opacity: 1; }
+    .cc-eyebrow {
+      font: 600 10px/1 'Segoe UI', sans-serif; letter-spacing: .4em; color: #4b5563;
+    }
+    .cc-title {
+      font: 900 38px/1.1 'Segoe UI', sans-serif; letter-spacing: .22em;
+      text-align: center; color: #c4b5fd;
+      text-shadow: 0 0 60px rgba(196,181,253,.35), 0 0 120px rgba(196,181,253,.15);
+    }
+    .cc-body {
+      font: 400 13px/1.8 'Segoe UI', sans-serif; color: #9ca3af;
+      text-align: center; max-width: 400px;
+    }
+    .cc-pause {
+      font: 300 12px/2 'Segoe UI', sans-serif; color: #4b5563;
+      text-align: center; max-width: 380px; font-style: italic;
+    }
+    .cc-dissolve {
+      margin-top: 12px; padding: 14px 42px;
+      background: transparent; border: 1px solid rgba(196,181,253,.3);
+      border-radius: 6px; color: #c4b5fd; cursor: pointer;
+      font: 700 11px/1 'Segoe UI', sans-serif; letter-spacing: .22em;
+      transition: border-color .2s, box-shadow .2s, color .2s;
+    }
+    .cc-dissolve:hover {
+      border-color: #c4b5fd; color: #ede9fe;
+      box-shadow: 0 0 28px rgba(196,181,253,.25);
+    }
+
+    /* ════════ PREMIUM SCREEN LANGUAGE — unified across player-facing screens ════════ */
+
+    /* Backdrops — depth via a soft radial glow toward the content + a glass blur. */
+    .loadout-overlay, .enemy-select, .reward-overlay, .modifier-overlay,
+    .shop-overlay, .class-select-overlay, .evolution-overlay, #pause-overlay, #game-over {
+      background: radial-gradient(ellipse 82% 64% at 50% 42%, rgba(34,32,68,0.44), rgba(5,5,14,0.95) 72%) !important;
+      backdrop-filter: blur(7px) saturate(1.05);
+      -webkit-backdrop-filter: blur(7px) saturate(1.05);
+    }
+    .campaign-complete-overlay {
+      background: radial-gradient(ellipse 72% 60% at 50% 46%, rgba(42,34,84,0.5), rgba(2,1,10,1) 76%) !important;
+    }
+    /* Collection opens over the live 3D title — needs a near-opaque backdrop so the bloom doesn't ghost through. */
+    .shop-overlay {
+      background: radial-gradient(ellipse 82% 64% at 50% 42%, rgba(26,24,54,0.9), rgba(4,3,12,0.99) 70%) !important;
+    }
+
+    /* Selection cards — premium glass + luminous top edge + depth.
+       (Each screen's accent border/text is left intact, so identity hues survive.) */
+    .cs-option, .evo-option, .rw-option, .mod-option, .lo-card, .es-card {
+      background: linear-gradient(168deg, rgba(25,27,52,0.82), rgba(10,11,24,0.88)) !important;
+      border-radius: 14px !important;
+      backdrop-filter: blur(13px); -webkit-backdrop-filter: blur(13px);
+      box-shadow: inset 0 1px 0 rgba(190,205,255,0.11), 0 18px 46px rgba(0,0,0,0.5) !important;
+      position: relative;
+    }
+    .cs-option::before, .evo-option::before, .rw-option::before,
+    .mod-option::before, .es-card::before {
+      content:''; position:absolute; top:0; left:22%; right:22%; height:1px; pointer-events:none;
+      background: linear-gradient(90deg, transparent, rgba(170,190,255,0.55), transparent);
+    }
+    .cs-option:hover, .evo-option:hover, .rw-option:hover, .mod-option:hover {
+      transform: translateY(-6px) !important;
+    }
+
+    /* Titles — an accent divider in each screen's own hue (via currentColor). */
+    .cs-title, .evo-title, .rw-title, .mod-title, #go-title {
+      position: relative !important; padding-bottom: 14px !important;
+    }
+    .cs-title::after, .evo-title::after, .rw-title::after, .mod-title::after, #go-title::after {
+      content:''; position:absolute; bottom:0; left:50%; transform:translateX(-50%);
+      width:50px; height:1px; opacity:.6;
+      background: linear-gradient(90deg, transparent, currentColor, transparent);
+    }
+    #go-title { text-shadow: 0 0 34px currentColor, 0 0 70px rgba(0,0,0,0.4); }
+
+    /* Eyebrows & subtitles — refined small-caps. */
+    .cs-eyebrow, .evo-eyebrow, .cc-eyebrow, .pm-eyebrow, .rw-sub, .mod-sub {
+      color: rgba(155,170,228,0.68) !important; letter-spacing: .34em !important;
+    }
+
+    /* Primary action buttons — premium glow. */
+    .lo-fight, #go-restart {
+      background: linear-gradient(180deg, #7c5cff, #6321c9) !important;
+      border-radius: 10px !important;
+      box-shadow: 0 8px 26px rgba(124,58,237,0.42), inset 0 1px 0 rgba(255,255,255,0.18) !important;
+      transition: box-shadow .15s, transform .12s !important;
+    }
+    .lo-fight:hover, #go-restart:hover {
+      transform: translateY(-1px) !important;
+      box-shadow: 0 12px 36px rgba(124,58,237,0.6), inset 0 1px 0 rgba(255,255,255,0.24) !important;
+    }
+    /* Pause panel buttons — subtle glass. */
+    .pm-btn {
+      background: linear-gradient(180deg, rgba(30,32,58,0.5), rgba(14,15,30,0.5)) !important;
+      border-color: rgba(150,170,255,0.16) !important;
+    }
+
+    /* ── Meld collision animation ─────────────────────── */
+    @keyframes meldFlash {
+      0%   { opacity: 0; }
+      15%  { opacity: 0.45; }
+      100% { opacity: 0; }
+    }
+    .meld-flash {
+      position: fixed; inset: 0; z-index: 149; pointer-events: none;
+      background: radial-gradient(ellipse at center, #fcd34d 0%, #f59e0b 40%, transparent 75%);
+      animation: meldFlash 0.32s ease-out both;
+    }
+
+    /* ── Meld fly-to-deck arc ───────────────────────────── */
+    @keyframes meldFlyArc {
+      0%   { transform: translate(0,0) scale(1) rotate(0deg); opacity: 1; }
+      38%  { transform: translate(var(--mx),var(--my)) scale(0.52) rotate(-6deg); opacity: 1; }
+      100% { transform: translate(var(--tx),var(--ty)) scale(0.06) rotate(-20deg); opacity: 0; }
+    }
+
+    /* ── Card-play arc (swoosh into 3D scene) ───────────── */
+    @keyframes cardPlayArc {
+      0%   { transform: translate(0,0) scale(1) rotate(0deg); opacity: 1; }
+      45%  { transform: translate(var(--mx),var(--my)) scale(0.85) rotate(3deg); opacity: 0.9; }
+      100% { transform: translate(var(--tx),var(--ty)) scale(0.55) rotate(8deg); opacity: 0; }
+    }
+
+    /* ── Pause / escape menu ───────────────────────────── */
+    #pause-btn {
+      position: fixed; top: 10px; left: 12px; z-index: 300;
+      background: transparent; border: 1px solid rgba(255,255,255,.1);
+      color: rgba(255,255,255,.3); cursor: pointer;
+      font: 16px/1 monospace; padding: 5px 9px; border-radius: 4px;
+      transition: color .15s, border-color .15s, background .15s;
+    }
+    #pause-btn:hover { color: #e2e8f0; border-color: rgba(255,255,255,.35); background: rgba(255,255,255,.05); }
+    #pause-overlay {
+      position: fixed; inset: 0; z-index: 299;
+      background: rgba(2,1,10,.92);
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px;
+      opacity: 0; pointer-events: none; transition: opacity .2s;
+    }
+    #pause-overlay.visible { opacity: 1; pointer-events: all; }
+    .pm-eyebrow {
+      font: 600 10px/1 'Segoe UI', sans-serif; letter-spacing: .35em; color: #374151;
+      margin-bottom: 4px;
+    }
+    .pm-btn {
+      width: 260px; padding: 13px 0;
+      background: transparent; border: 1px solid rgba(255,255,255,.12);
+      border-radius: 6px; color: #9ca3af; cursor: pointer;
+      font: 700 11px/1 'Segoe UI', sans-serif; letter-spacing: .18em;
+      transition: border-color .15s, color .15s;
+    }
+    .pm-btn:hover { border-color: rgba(255,255,255,.35); color: #e2e8f0; }
+    .pm-btn.danger:hover { border-color: #ef4444; color: #ef4444; }
+    .pm-divider { width: 260px; height: 1px; background: rgba(255,255,255,.07); margin: 6px 0; }
+    .pm-slider-row {
+      display: flex; align-items: center; gap: 10px; width: 260px; padding: 4px 0;
+    }
+    .pm-slider-label {
+      font: 700 10px/1 'Segoe UI', sans-serif; letter-spacing: .18em;
+      color: #6b7280; width: 48px; flex-shrink: 0;
+    }
+    .pm-slider {
+      flex: 1; -webkit-appearance: none; appearance: none;
+      height: 3px; border-radius: 2px; outline: none; cursor: pointer;
+      background: linear-gradient(to right, #6ea3ff var(--pm-pct,0%), rgba(100,140,255,.2) var(--pm-pct,0%));
+    }
+    .pm-slider::-webkit-slider-thumb {
+      -webkit-appearance: none; width: 12px; height: 12px; border-radius: 50%;
+      background: #6ea3ff; cursor: pointer; box-shadow: 0 0 6px rgba(110,163,255,.5);
+    }
+    .pm-slider::-moz-range-thumb {
+      width: 12px; height: 12px; border-radius: 50%;
+      background: #6ea3ff; border: none; cursor: pointer;
+    }
+    .pm-slider-val {
+      font: 700 10px/1 'Courier New', monospace; color: #6ea3ff;
+      width: 34px; text-align: right; flex-shrink: 0;
     }
   </style>
 </head>
 <body>
   <div id="hud">
-    <div class="hp-row player">
-      <span>YOU</span>
-      <div class="hp-bar-bg"><div class="hp-bar player" id="hp-player"></div></div>
-      <span class="hp-text" id="hp-player-text"></span>
-      <span class="block-badge" id="block-player"></span>
+    <div class="hud-col hud-p">
+      <div class="hp-row player">
+        <span class="hud-label">YOU</span>
+        <div class="hp-bar-bg"><div class="hp-bar player" id="hp-player"></div></div>
+        <span class="hp-text" id="hp-player-text"></span>
+        <span class="block-badge" id="block-player"></span>
+      </div>
+      <div class="status-row" id="status-player"></div>
     </div>
-    <div class="status-row player" id="status-player"></div>
-    <div class="status-row enemy" id="status-enemy"></div>
-    <div class="hp-row enemy">
-      <span class="block-badge" id="block-enemy"></span>
-      <span class="hp-text" id="hp-enemy-text"></span>
-      <div class="hp-bar-bg"><div class="hp-bar enemy" id="hp-enemy"></div></div>
-      <span id="enemy-name">FOE</span>
+    <div class="hud-col hud-e">
+      <div id="encounter-info"></div>
+      <div id="enemy-intent"><div class="intent-label">FOE PLANS</div><div id="intent-text"></div></div>
+      <div class="hp-row">
+        <span class="block-badge" id="block-enemy"></span>
+        <span class="hp-text" id="hp-enemy-text"></span>
+        <div class="hp-bar-bg"><div class="hp-bar enemy" id="hp-enemy"></div></div>
+        <span id="enemy-name">FOE</span>
+      </div>
+      <div class="status-row" id="status-enemy"></div>
     </div>
   </div>
 
-  <div id="enemy-intent"><div class="intent-label">FOE PLANS</div><div id="intent-text"></div></div>
   <div id="turn-counter"></div>
-  <div id="encounter-info"></div>
   <div id="banner"></div>
 
   <div id="energy">
@@ -388,6 +1159,26 @@
     <h1 id="go-title"></h1>
     <p id="go-sub"></p>
     <button id="go-restart">Play Again</button>
+  </div>
+
+  <button id="pause-btn" title="Menu (Esc)">≡</button>
+
+  <div id="pause-overlay">
+    <div class="pm-eyebrow">PAUSED</div>
+    <button class="pm-btn" id="pm-resume">RESUME</button>
+    <div class="pm-divider"></div>
+    <div class="pm-slider-row">
+      <span class="pm-slider-label">SFX</span>
+      <input type="range" id="pm-sfx" class="pm-slider" min="0" max="1" step="0.05">
+      <span class="pm-slider-val" id="pm-sfx-val"></span>
+    </div>
+    <div class="pm-slider-row">
+      <span class="pm-slider-label">MUSIC</span>
+      <input type="range" id="pm-music" class="pm-slider" min="0" max="1" step="0.05">
+      <span class="pm-slider-val" id="pm-music-val"></span>
+    </div>
+    <div class="pm-divider"></div>
+    <button class="pm-btn danger" id="pm-title">RETURN TO TITLE</button>
   </div>
 
   <script type="module" src="./src/main.ts"></script>

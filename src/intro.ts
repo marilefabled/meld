@@ -53,7 +53,7 @@ export const INTRO: DialogueConversation<IntroCtx> = {
       text: 'Three paths of power. Choose the one that matches your nature.',
       choices: [
         { label: '⚔  WARRIOR  — 70 HP · Strike focus · outlast anything', next: 'take-warrior' },
-        { label: '🔥  MAGE     — 50 HP · Fireball focus · highest ceiling', next: 'take-mage' },
+        { label: '🔥  MAGE     — 55 HP · Fireball focus · highest ceiling', next: 'take-mage' },
         { label: '🗡  ROGUE    — 60 HP · Slash & bleed · status mastery', next: 'take-rogue' },
       ],
     },

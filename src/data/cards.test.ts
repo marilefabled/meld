@@ -1,18 +1,48 @@
 import { describe, it, expect } from 'vitest'
-import { scaledValue, CARD_DATA, MAX_TIER, makeCard } from './cards.js'
+import { getVariant, CARD_DATA, MAX_TIER, makeCard, DEFAULT_BUILD } from './cards.js'
 
-describe('scaledValue', () => {
-  it('tier I is base value', () => {
-    expect(scaledValue(CARD_DATA.strike, 1)).toBe(6)
+describe('getVariant', () => {
+  it('returns default (index 0) when build is empty', () => {
+    const def = CARD_DATA.strike
+    const v = getVariant(def, 1, DEFAULT_BUILD, 'strike')
+    expect(v.value).toBe(6)
+    expect(v.name).toBe('Jab')
   })
-  it('tier II is 2.2× rounded', () => {
-    expect(scaledValue(CARD_DATA.strike, 2)).toBe(Math.round(6 * 2.2))   // 13
+  it('returns alt variant when build selects index 1', () => {
+    const def = CARD_DATA.strike
+    const v = getVariant(def, 1, { strike: [1, 0, 0] }, 'strike')
+    expect(v.name).toBe('Puncture')
+    expect(v.value).toBe(4)
+    expect(v.status?.kind).toBe('vulnerable')
   })
-  it('tier III is 4.5× rounded', () => {
-    expect(scaledValue(CARD_DATA.fireball, 3)).toBe(Math.round(9 * 4.5)) // 41
+  it('T2 default strike is 13 dmg', () => {
+    const v = getVariant(CARD_DATA.strike, 2, DEFAULT_BUILD, 'strike')
+    expect(v.value).toBe(13)
   })
-  it('unknown tier falls back to ×1', () => {
-    expect(scaledValue(CARD_DATA.heal, 99)).toBe(7)
+  it('T3 default fireball is 40 dmg with ignite status', () => {
+    const v = getVariant(CARD_DATA.fireball, 3, DEFAULT_BUILD, 'fireball')
+    expect(v.value).toBe(40)
+    expect(v.status?.kind).toBe('poison')
+    expect(v.status?.stacks).toBe(3)
+  })
+  it('T2 default block heals equal to absorb', () => {
+    const v = getVariant(CARD_DATA.block, 2, DEFAULT_BUILD, 'block')
+    expect(v.value).toBe(4)
+    expect(v.heal).toBe(4)
+  })
+  it('T2 fortress variant has no heal but more absorb', () => {
+    const v = getVariant(CARD_DATA.block, 2, { block: [0, 1, 0] }, 'block')
+    expect(v.name).toBe('Fortress')
+    expect(v.value).toBe(7)
+    expect(v.heal).toBeUndefined()
+  })
+  it('overload T2 discharge has selfDamage', () => {
+    const v = getVariant(CARD_DATA.overload, 2, DEFAULT_BUILD, 'overload')
+    expect(v.selfDamage).toBe(3)
+  })
+  it('clamps out-of-range index to last variant', () => {
+    const v = getVariant(CARD_DATA.strike, 1, { strike: [99, 0, 0] }, 'strike')
+    expect(v).toBeDefined()
   })
   it('MAX_TIER is 3', () => {
     expect(MAX_TIER).toBe(3)

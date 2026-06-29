@@ -40,6 +40,7 @@ export type MenuItemDef =
       options: string[] | Record<string, string> }
   | { type: 'header';    label: string }
   | { type: 'separator' }
+  | { type: 'custom';    html: string; className?: string }   // raw HTML block (non-focusable)
   | { type: 'back';      label?: string }
 
 export interface MenuDef {
@@ -421,6 +422,13 @@ export function createMenuSystem(opts: MenuSystemOpts = {}) {
         case 'separator': {
           const sep = document.createElement('div')
           sep.className = 'ms-sep'; list.appendChild(sep); break
+        }
+
+        case 'custom': {
+          const d = document.createElement('div')
+          d.className = 'ms-custom' + (item.className ? ` ${item.className}` : '')
+          d.innerHTML = item.html
+          list.appendChild(d); break
         }
       }
     }

@@ -1,18 +1,35 @@
 // Procedural WAV synthesis — no external deps. Plays via new Audio() which
 // works after any user gesture on the page (e.g. clicking NEW GAME).
+//
+// Softness comes from the envelope, not just the volume: every tone gets a short
+// ATTACK ramp (so the onset doesn't click) and a RELEASE fade (so the cutoff
+// doesn't click) — instant-onset clicks are what make raw beeps sound harsh. A
+// one-pole LOWPASS muffles the brightness, a pitch GLIDE gives soft impacts, and
+// `triangle` replaces the buzzy `square`.
 
-function toneWav({ freq = 440, dur = 0.12, type = 'sine', decay = 8, volume = 0.6, sampleRate = 44100 }: {
-  freq?: number; dur?: number; type?: 'sine' | 'square' | 'noise'
-  decay?: number; volume?: number; sampleRate?: number
+import { settings } from './settings.js'
+
+function toneWav({ freq = 440, freqEnd, dur = 0.12, type = 'sine', decay = 8, volume = 0.6,
+  attack = 0.006, lowpass = 0, sampleRate = 44100 }: {
+  freq?: number; freqEnd?: number; dur?: number; type?: 'sine' | 'triangle' | 'square' | 'noise'
+  decay?: number; volume?: number; attack?: number; lowpass?: number; sampleRate?: number
 } = {}): string {
-  const n = Math.floor(sampleRate * dur)
+  const n   = Math.floor(sampleRate * dur)
+  const rel = Math.min(0.02, dur * 0.3)   // release fade length (s)
   const samples = new Int16Array(n)
+  let phase = 0, lp = 0
   for (let i = 0; i < n; i++) {
     const t = i / sampleRate
-    const wave = type === 'noise' ? Math.random() * 2 - 1
-      : type === 'square' ? (Math.sin(2 * Math.PI * freq * t) >= 0 ? 1 : -1)
-      : Math.sin(2 * Math.PI * freq * t)
-    const env = Math.exp(-decay * t)
+    const f = freqEnd != null ? freq + (freqEnd - freq) * (t / dur) : freq
+    phase += (2 * Math.PI * f) / sampleRate   // accumulate so glides stay phase-continuous
+    let wave = type === 'noise' ? Math.random() * 2 - 1
+      : type === 'square'   ? (Math.sin(phase) >= 0 ? 1 : -1)
+      : type === 'triangle' ? (2 / Math.PI) * Math.asin(Math.sin(phase))
+      : Math.sin(phase)
+    if (lowpass > 0) { lp += (wave - lp) * lowpass; wave = lp }   // one-pole lowpass
+    const atk = attack > 0 ? Math.min(1, t / attack) : 1          // attack ramp (no onset click)
+    const relEnv = (dur - t) < rel ? (dur - t) / rel : 1          // release fade (no cutoff click)
+    const env = Math.exp(-decay * t) * atk * relEnv
     samples[i] = Math.max(-1, Math.min(1, wave * env * volume)) * 32767
   }
   const buf  = new ArrayBuffer(44 + n * 2)
@@ -31,18 +48,29 @@ function toneWav({ freq = 440, dur = 0.12, type = 'sine', decay = 8, volume = 0.
 
 function mkSnd(params: Parameters<typeof toneWav>[0]): () => void {
   const uri = toneWav(params)
-  return () => { new Audio(uri).play().catch(() => {}) }
+  return () => {
+    const a = new Audio(uri)
+    a.volume = settings.sfxVolume
+    a.play().catch(() => {})
+  }
 }
 
 export const sfx = {
-  cardPlay: mkSnd({ freq: 330,  dur: 0.07,  decay: 14,  volume: 0.4  }),
-  meld1:    mkSnd({ freq: 440,  dur: 0.12,  decay: 8,   volume: 0.55 }),  // A4
-  meld2:    mkSnd({ freq: 660,  dur: 0.18,  decay: 5,   volume: 0.6  }),  // E5 — rising perfect fifth
-  hit:      mkSnd({ type: 'noise',  freq: 200, dur: 0.09, decay: 35, volume: 0.5  }),
-  enemyHit: mkSnd({ type: 'noise',  freq: 140, dur: 0.12, decay: 28, volume: 0.45 }),
-  shield:   mkSnd({ type: 'square', freq: 280, dur: 0.10, decay: 12, volume: 0.4  }),
-  heal:     mkSnd({ freq: 528,  dur: 0.22,  decay: 5,   volume: 0.45 }),
-  victory:  mkSnd({ freq: 880,  dur: 0.45,  decay: 2.5, volume: 0.55 }),
-  defeat:   mkSnd({ type: 'noise',  freq: 60,  dur: 0.6,  decay: 3,  volume: 0.4  }),
+  // Fires on every card play — kept low and soft so it never grates.
+  cardPlay: mkSnd({ type: 'sine',     freq: 230, freqEnd: 185, dur: 0.08, decay: 16, volume: 0.24, attack: 0.004 }),
+  // Meld reward — a warm rising perfect fifth (A4 → E5), triangle for mellow body.
+  meld1:    mkSnd({ type: 'triangle', freq: 440, dur: 0.14, decay: 7,   volume: 0.36, attack: 0.008 }),
+  meld2:    mkSnd({ type: 'triangle', freq: 660, dur: 0.20, decay: 4.5, volume: 0.38, attack: 0.008 }),
+  // Impacts — low muffled thuds with a downward glide, not harsh static.
+  hit:      mkSnd({ type: 'triangle', freq: 190, freqEnd: 82, dur: 0.13, decay: 13, volume: 0.34, attack: 0.003, lowpass: 0.4 }),
+  enemyHit: mkSnd({ type: 'triangle', freq: 150, freqEnd: 70, dur: 0.11, decay: 16, volume: 0.30, attack: 0.003, lowpass: 0.4 }),
+  // Block — a soft woody "tok" (muffled triangle) instead of a buzzy square.
+  shield:   mkSnd({ type: 'triangle', freq: 300, dur: 0.12, decay: 10,  volume: 0.28, attack: 0.006, lowpass: 0.5 }),
+  // Heal — a gentle warm swell upward.
+  heal:     mkSnd({ type: 'sine',     freq: 520, freqEnd: 600, dur: 0.30, decay: 3.5, volume: 0.32, attack: 0.02 }),
+  // Victory — pleasant bright rise.
+  victory:  mkSnd({ type: 'triangle', freq: 620, freqEnd: 960, dur: 0.50, decay: 2.2, volume: 0.38, attack: 0.01 }),
+  // Defeat — a soft descending tone, muffled, not a noise burst.
+  defeat:   mkSnd({ type: 'sine',     freq: 240, freqEnd: 80,  dur: 0.60, decay: 2.2, volume: 0.32, attack: 0.02, lowpass: 0.3 }),
   meld() { sfx.meld1(); setTimeout(() => sfx.meld2(), 110) },
 }

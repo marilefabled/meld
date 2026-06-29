@@ -65,6 +65,7 @@ function injectStyles() {
       padding: 0; font-family: inherit; color: #e8e8e8;
       box-shadow: 0 8px 40px rgba(0,0,0,0.6);
       transform: translateY(8px); transition: transform 0.18s ease;
+      cursor: pointer;
     }
     .db-overlay.db-visible .db-box { transform: translateY(0); }
 
@@ -140,7 +141,7 @@ export function createDialogueBox(
       </div>
       <div class="db-text"></div>
       <div class="db-choices"></div>
-      <div class="db-prompt">SPACE to continue</div>
+      <div class="db-prompt">CLICK or SPACE to continue</div>
     </div>
   `
   container.appendChild(overlay)
@@ -237,6 +238,14 @@ export function createDialogueBox(
       }
     })
   }
+
+  // ── Box click (advance on click anywhere except choice buttons) ───────
+  overlay.querySelector('.db-box')!.addEventListener('click', (e) => {
+    if (!_visible) return
+    if ((e.target as Element).closest('.db-choice')) return
+    if (_typing) { completeTypewriter(); return }
+    if (_currentNode?.isAuto) runner.advance()
+  })
 
   // ── Keyboard ──────────────────────────────────────────────────────────
   function onKey(e: KeyboardEvent) {
