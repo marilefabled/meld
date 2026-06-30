@@ -1,0 +1,9 @@
+{
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "installCommand": "npm install",
+  "framework": "vite",
+  "env": {
+    "ELECTRON_SKIP_BINARY_DOWNLOAD": "1"
+  }
+}
