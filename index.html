@@ -23,11 +23,26 @@
     body:not(.game-active) #energy,
     body:not(.game-active) #ap-bonus,
     body:not(.game-active) #hand,
+    body:not(.game-active) #hold-slots,
     body:not(.game-active) #deck-info,
     body:not(.game-active) #end-turn,
     body:not(.game-active) #game-over,
     body:not(.game-active) #pause-btn {
       display: none !important;
+    }
+    body.dialogue-active #hud,
+    body.dialogue-active #enemy-intent,
+    body.dialogue-active #turn-counter,
+    body.dialogue-active #encounter-info,
+    body.dialogue-active #banner,
+    body.dialogue-active #energy,
+    body.dialogue-active #ap-bonus,
+    body.dialogue-active #hand,
+    body.dialogue-active #hold-slots,
+    body.dialogue-active #deck-info,
+    body.dialogue-active #end-turn {
+      opacity: 0 !important;
+      pointer-events: none !important;
     }
 
     /* ── HUD — two-column layout ─────────────────────────────── */
@@ -233,6 +248,15 @@
     .status-pill.vulnerable { background: rgba(220,38,38,.3);  color: #fca5a5; border: 1px solid #dc2626; }
     .status-pill.poison     { background: rgba(124,58,237,.3); color: #c4b5fd; border: 1px solid #7c3aed; }
     .status-pill.weak       { background: rgba(202,138,4,.3);  color: #fef08a; border: 1px solid #ca8a04; }
+    .trait-pill {
+      font-size: 9px; font-weight: 800; padding: 2px 7px; border-radius: 8px;
+      letter-spacing: .9px; opacity: .92; color: #dbeafe;
+      background: rgba(30,41,59,.66); border: 1px solid rgba(148,163,184,.35);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.06);
+    }
+    .trait-pill.immune  { color: #e9d5ff; border-color: rgba(196,181,253,.55); background: rgba(91,33,182,.24); }
+    .trait-pill.armored { color: #fde68a; border-color: rgba(251,191,36,.5); background: rgba(120,53,15,.24); }
+    .trait-pill.regen   { color: #bbf7d0; border-color: rgba(74,222,128,.45); background: rgba(20,83,45,.24); }
 
     /* ── Merge button disabled state ─────────────────────────── */
     .merge-btn:disabled { opacity: .3; cursor: default; }
@@ -250,6 +274,15 @@
       background: linear-gradient(135deg, color-mix(in srgb, var(--ic) 20%, #0a0a16) 0%, rgba(10,10,22,.85) 100%);
       border: 1px solid color-mix(in srgb, var(--ic) 55%, transparent);
       box-shadow: 0 4px 16px color-mix(in srgb, var(--ic) 26%, transparent), inset 0 0 0 1px rgba(255,255,255,.04);
+    }
+    #enemy-intent .intent-stack {
+      display: inline-flex; flex-direction: column; align-items: flex-end; gap: 5px;
+      max-width: min(320px, 34vw);
+    }
+    #enemy-intent .intent-hint {
+      max-width: 100%; padding: 0 2px;
+      font: 650 10px/1.25 'Segoe UI', sans-serif; color: #93a4c7; text-align: right;
+      text-wrap: balance;
     }
     #enemy-intent .intent-glyph { width: 26px; height: 26px; flex: none; }
     #enemy-intent .intent-glyph svg { width: 100%; height: 100%; display: block; }
@@ -275,6 +308,34 @@
     }
     #hand.dimmed { opacity: .2; pointer-events: none; }
 
+    #hold-slots {
+      position: fixed; bottom: 170px; left: 50%; transform: translateX(-50%);
+      z-index: 10; display: flex; gap: 8px; pointer-events: none;
+    }
+    .hold-slot {
+      width: 86px; height: 22px; display: flex; align-items: center; justify-content: center;
+      border: 1px solid rgba(148,163,184,.24); border-radius: 7px;
+      background: rgba(8,10,22,.62); color: #56627c;
+      font: 800 8px/1 'Segoe UI', sans-serif; letter-spacing: 1.2px;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.04);
+      overflow: hidden;
+    }
+    .hold-slot span {
+      max-width: 76px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .hold-slot.filled {
+      color: color-mix(in srgb, var(--hc) 36%, #fff);
+      border-color: color-mix(in srgb, var(--hc) 58%, transparent);
+      background: linear-gradient(180deg, color-mix(in srgb, var(--hc) 18%, #070815) 0%, rgba(8,10,22,.72) 100%);
+      box-shadow: 0 0 16px color-mix(in srgb, var(--hc) 24%, transparent), inset 0 1px 0 rgba(255,255,255,.08);
+    }
+    .hold-slot.pulse { animation: holdSlotPulse .42s ease-out both; }
+    @keyframes holdSlotPulse {
+      0% { transform: translateY(0) scale(1); }
+      45% { transform: translateY(-2px) scale(1.05); }
+      100% { transform: translateY(0) scale(1); }
+    }
+
     .card {
       width: 116px; padding: 0 7px 8px;
       background: linear-gradient(180deg, rgba(20,20,42,0.96), rgba(10,10,22,0.98));
@@ -292,6 +353,15 @@
     }
     .card:active { transform: translateY(-6px) scale(.97); }
     .card.disabled { opacity: .32; pointer-events: none; }
+    .card.tutorial-locked { filter: grayscale(.4); }
+    .card.tutorial-target {
+      box-shadow: 0 0 0 1px #fcd34d, 0 0 36px rgba(245,158,11,.45), inset 0 1px 0 rgba(255,255,255,.1);
+      animation: tutorialPulse 1.15s ease-in-out infinite;
+    }
+    @keyframes tutorialPulse {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-5px); }
+    }
     /* freshly forged card — a luminous aura in its own colour as it emerges */
     .card.forged {
       border-color: color-mix(in srgb, var(--cc,#6366f1) 85%, white) !important;
@@ -731,6 +801,10 @@
     .rw-icon  { width: 48px; height: 48px; margin: 0 auto 10px; display: block; }
     .rw-label { font: 700 12px/1.3 'Segoe UI', sans-serif; color: #c4b5fd; margin-bottom: 6px; }
     .rw-desc  { font: 400 10px/1.4 'Segoe UI', sans-serif; color: #6b7280; }
+    .rw-compare {
+      margin-top: 9px; padding-top: 8px; border-top: 1px solid rgba(148,163,184,.14);
+      font: 500 9px/1.35 'Segoe UI', sans-serif; color: #93a4c7;
+    }
     /* card-reward options get a full art window */
     .rw-card { padding-top: 0 !important; overflow: hidden; }
     .rw-art {
@@ -891,6 +965,7 @@
     .cs-name     { font: 900 15px/1 'Segoe UI', sans-serif; letter-spacing: .12em; margin-bottom: 4px; }
     .cs-role     { font: 700 10px/1 'Segoe UI', sans-serif; color: #818cf8; letter-spacing: .2em; margin-bottom: 10px; }
     .cs-stat     { font: 600 11px/1 'Segoe UI', sans-serif; color: #4b5563; margin-bottom: 10px; }
+    .cs-preview  { font: 600 10px/1.4 'Segoe UI', sans-serif; color: #a5b4fc; min-height: 40px; margin-bottom: 8px; }
     .cs-flavor   { font: 400 10px/1.4 'Segoe UI', sans-serif; color: #6b7280; font-style: italic; }
 
     /* ── Evolution screen ────────────────────────────────────── */
@@ -1025,6 +1100,224 @@
     .lo-fight:hover, #go-restart:hover {
       transform: translateY(-1px) !important;
       box-shadow: 0 12px 36px rgba(124,58,237,0.6), inset 0 1px 0 rgba(255,255,255,0.24) !important;
+    }
+
+    /* ── Capture-ready first slice polish ───────────────────── */
+    .meld-title .ms-title,
+    .meld-title .ms-hdr,
+    .meld-title .ms-btn,
+    .lo-title, .lo-subtitle, .lo-detail-head, .lo-tile-name, .lo-tcard-tier,
+    .cs-eyebrow, .cs-title, .cs-name, .cs-role,
+    .rw-eyebrow, .rw-title, .rw-sub, .rw-kind,
+    .evo-eyebrow, .evo-title, .evo-state, .evo-label {
+      letter-spacing: 0 !important;
+    }
+    .meld-title .ms-title {
+      font-size: 3.35rem !important;
+      line-height: .95 !important;
+      padding-right: 0 !important;
+    }
+    .meld-title .ms-hdr {
+      color: rgba(185,198,255,.62) !important;
+      font-size: .72rem !important;
+      text-transform: uppercase;
+    }
+    .meld-title .ms-btn {
+      width: 250px !important;
+      margin-inline: auto;
+      border-radius: 8px !important;
+    }
+
+    .class-select-overlay,
+    .loadout-overlay,
+    .reward-overlay,
+    .evolution-overlay {
+      padding: 36px 24px !important;
+    }
+    .cs-title, .lo-title, .rw-title, .evo-title {
+      font-size: 24px !important;
+      line-height: 1 !important;
+    }
+    .cs-body, .evo-body {
+      color: rgba(206,217,255,.72) !important;
+      max-width: 520px !important;
+    }
+    .cs-options, .rw-options, .evo-options {
+      gap: 14px !important;
+    }
+    .cs-option, .evo-option, .rw-option, .mod-option, .lo-tile, .lo-detail, .lo-tcard, .card, .es-card {
+      border-radius: 8px !important;
+    }
+    .cs-option {
+      width: 220px !important;
+      min-height: 272px;
+      padding: 24px 18px 20px !important;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-start;
+    }
+    .cs-icon { margin-bottom: 14px !important; }
+    .cs-name { font-size: 16px !important; color: #eef2ff; }
+    .cs-role {
+      color: #67e8f9 !important;
+      font-size: 10px !important;
+      margin-bottom: 12px !important;
+    }
+    .cs-stat {
+      color: rgba(226,232,240,.62) !important;
+      border-top: 1px solid rgba(148,163,184,.16);
+      border-bottom: 1px solid rgba(148,163,184,.12);
+      padding: 8px 0;
+      margin-bottom: 10px !important;
+    }
+    .cs-preview {
+      color: #c4b5fd !important;
+      min-height: 42px !important;
+    }
+    .cs-flavor { color: rgba(203,213,225,.68) !important; }
+
+    .lo-head {
+      width: min(92vw, 760px);
+      padding-bottom: 4px;
+      border-bottom: 1px solid rgba(148,163,184,.16);
+    }
+    .lo-title { color: #c4b5fd !important; }
+    .lo-subtitle {
+      color: rgba(103,232,249,.7) !important;
+      margin-bottom: 0 !important;
+    }
+    .lo-grid {
+      max-width: 720px !important;
+      gap: 10px !important;
+      margin: 18px 0 16px !important;
+    }
+    .lo-tile {
+      width: 112px !important;
+      height: 132px !important;
+    }
+    .lo-tile-art { height: 62px !important; }
+    .lo-detail {
+      width: min(92vw, 620px) !important;
+      padding: 14px 16px 16px !important;
+    }
+    .lo-tcards { gap: 8px !important; }
+    .lo-tcard-name { font-size: 13px !important; }
+    .lo-fight {
+      margin-top: 18px !important;
+      min-width: 260px;
+      border-radius: 8px !important;
+    }
+
+    .reward-overlay {
+      gap: 14px !important;
+    }
+    .rw-eyebrow {
+      font: 800 11px/1 'Segoe UI', sans-serif;
+      color: rgba(103,232,249,.74);
+      text-transform: uppercase;
+    }
+    .rw-title {
+      color: #fcd34d !important;
+      text-shadow: 0 0 24px rgba(252,211,77,.34) !important;
+    }
+    .rw-sub {
+      color: rgba(206,217,255,.6) !important;
+      margin-bottom: 8px;
+    }
+    .rw-options {
+      align-items: stretch;
+    }
+    .rw-option {
+      width: 210px !important;
+      min-height: 246px;
+      padding: 18px 16px !important;
+      border-color: rgba(148,163,184,.18) !important;
+    }
+    .rw-card { padding-top: 0 !important; }
+    .rw-art {
+      height: 88px !important;
+      margin-bottom: 12px !important;
+    }
+    .rw-kind {
+      font: 900 10px/1 'Segoe UI', sans-serif;
+      color: rgba(103,232,249,.76);
+      margin-bottom: 9px;
+    }
+    .rw-label {
+      color: #eef2ff !important;
+      font-size: 14px !important;
+    }
+    .rw-desc {
+      color: rgba(203,213,225,.7) !important;
+      font-size: 11px !important;
+    }
+    .rw-hp {
+      border-color: rgba(74,222,128,.24) !important;
+    }
+    .rw-variant {
+      border-color: rgba(252,211,77,.24) !important;
+    }
+
+    .evolution-overlay {
+      gap: 14px !important;
+    }
+    .evo-title {
+      color: #6ee7b7 !important;
+    }
+    .evo-state {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: center;
+      max-width: 760px;
+      margin: 2px 0 6px;
+    }
+    .evo-state span {
+      border: 1px solid rgba(110,231,183,.22);
+      background: rgba(6,78,59,.18);
+      color: rgba(209,250,229,.82);
+      border-radius: 999px;
+      padding: 6px 10px;
+      font: 800 10px/1 'Segoe UI', sans-serif;
+    }
+    .evo-option {
+      width: 230px !important;
+      min-height: 222px;
+      border-color: rgba(110,231,183,.2) !important;
+    }
+    .evo-label {
+      font-size: 13px !important;
+      color: #a7f3d0 !important;
+    }
+    .evo-desc { color: #eef2ff !important; }
+    .evo-flavor { color: rgba(203,213,225,.64) !important; }
+
+    @media (max-height: 760px) {
+      .class-select-overlay, .loadout-overlay, .reward-overlay, .evolution-overlay {
+        padding-top: 22px !important;
+        padding-bottom: 22px !important;
+      }
+      .cs-option {
+        min-height: 250px;
+        padding-top: 20px !important;
+      }
+      .cs-icon {
+        width: 56px !important;
+        height: 56px !important;
+      }
+      .lo-grid {
+        margin-top: 14px !important;
+        margin-bottom: 12px !important;
+      }
+      .lo-fight {
+        margin-top: 14px !important;
+      }
+      .rw-option {
+        min-height: 226px;
+      }
+      .evo-option {
+        min-height: 206px;
+      }
     }
     /* Pause panel buttons — subtle glass. */
     .pm-btn {

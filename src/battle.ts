@@ -18,14 +18,16 @@ import { bigCardHTML, showCardPreview, hideCardPreview } from './view/cardPrevie
 import { showRewardScreen, type Reward } from './screens/rewardScreen.js'
 import { progression } from './data/progression.js'
 import { saveCheckpoint, clearCheckpoint } from './data/campaign.js'
+import { buildTutorialOpeningDeck, type BattleTutorialConfig } from './data/tutorial.js'
 
 const cards = createRegistry<CardDef>('cards')
 cards.loadAll(CARD_DATA)
 
 // ── Game entry ────────────────────────────────────────────────────────────
 export type { PlayerClass }
+export type { BattleTutorialConfig }
 
-export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom = 0, startPlayerHP, startRunFragments = 0, build = DEFAULT_BUILD, modifier = null, customDeck, encounters = ENCOUNTERS, isFinale = false, onVictory, onDefeat, onBeforeEncounter, onAfterEncounter, onDefeatBeat, isFirstRun = false, powerLevel = 1, classesIn = [] as PlayerClass[], runNumber = 0 }: { playerClass?: PlayerClass; startFrom?: number; startPlayerHP?: number; startRunFragments?: number; build?: CardBuild; modifier?: Modifier | null; customDeck?: { cardId: string; tier: number }[]; encounters?: EnemyDef[]; isFinale?: boolean; onVictory?: () => void; onDefeat?: () => void; onBeforeEncounter?: (enemyName: string, idx: number) => Promise<void>; onAfterEncounter?: (enemyName: string, idx: number) => Promise<void>; onDefeatBeat?: (enemyName: string) => Promise<void>; isFirstRun?: boolean; powerLevel?: number; classesIn?: PlayerClass[]; runNumber?: number } = {}): { dispose: () => void } {
+export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom = 0, startPlayerHP, startRunFragments = 0, build = DEFAULT_BUILD, modifier = null, customDeck, encounters = ENCOUNTERS, isFinale = false, onVictory, onDefeat, onBeforeEncounter, onDefeatBeat, isFirstRun = false, tutorial = null, powerLevel = 1, classesIn = [] as PlayerClass[], runNumber = 0 }: { playerClass?: PlayerClass; startFrom?: number; startPlayerHP?: number; startRunFragments?: number; build?: CardBuild; modifier?: Modifier | null; customDeck?: { cardId: string; tier: number }[]; encounters?: EnemyDef[]; isFinale?: boolean; onVictory?: () => void; onDefeat?: () => void; onBeforeEncounter?: (enemyName: string, idx: number) => Promise<void>; onDefeatBeat?: (enemyName: string) => Promise<void>; isFirstRun?: boolean; tutorial?: BattleTutorialConfig | null; powerLevel?: number; classesIn?: PlayerClass[]; runNumber?: number } = {}): { dispose: () => void } {
   const classConfig = CLASS_CONFIGS[playerClass]
   // What the player has become: which off-class essences they've absorbed, and how
   // deeply they've strengthened. Drives the visual "marks" grafted onto the form.
@@ -377,9 +379,13 @@ export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom 
   // ── Deck ─────────────────────────────────────────────────────────────────
   const startingDeck = classConfig.deck
 
-  const startingCards = customDeck ?? startingDeck.map(id => ({ cardId: id, tier: 1 }))
+  const baseStartingCards = customDeck ?? startingDeck.map(id => ({ cardId: id, tier: 1 }))
+  const tutorialActive = !!tutorial?.enabled && startFrom === 0 && !isFinale
+  const startingCards = tutorialActive
+    ? buildTutorialOpeningDeck(baseStartingCards, tutorial.openingHand)
+    : baseStartingCards
   const deck = createDeck<GameCard>(startingCards.map(c => makeCard(c.cardId, c.tier)))
-  deck.shuffle()
+  if (!tutorialActive) deck.shuffle()
   if (modifier?.startWithT2) deck.shelve(makeCard(modifier.startWithT2, 2))
 
   let runFragments = startRunFragments
@@ -389,6 +395,7 @@ export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom 
   const heldIds = new Set<string>()
   let bonusDraw = 0
   let _holdGhosts: HTMLElement[] = []
+  let tutorialMeldComplete = !tutorialActive
 
   // ── DOM refs ─────────────────────────────────────────────────────────────
   const $hand        = document.getElementById('hand')!
@@ -420,6 +427,10 @@ export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom 
   const $encounterInfo = document.getElementById('encounter-info')!
   const $statusPlayer  = document.getElementById('status-player')!
   const $statusEnemy   = document.getElementById('status-enemy')!
+  const $holdSlots     = document.createElement('div')
+  $holdSlots.id = 'hold-slots'
+  $holdSlots.setAttribute('aria-label', 'Held card memory slots')
+  document.body.appendChild($holdSlots)
 
   // ── Encounter state ──────────────────────────────────────────────────────
   let ENEMY_MOVES: EnemyMove[] = []
@@ -502,6 +513,7 @@ export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom 
 
     renderStatuses($statusPlayer, playerStats)
     renderStatuses($statusEnemy, enemyStats)
+    renderTraitPills($statusEnemy)
   }
 
   function renderStatuses(el: HTMLElement, stats: StatBlock) {
@@ -521,6 +533,21 @@ export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom 
     }
   }
 
+  function renderTraitPills(el: HTMLElement) {
+    const defs: Record<EnemyTrait['kind'], { label: string; cls: string }> = {
+      immune:  { label: 'IMMUNE',  cls: 'immune' },
+      armored: { label: 'ARMORED', cls: 'armored' },
+      regen:   { label: 'REGEN',   cls: 'regen' },
+    }
+    for (const t of enemyTraits) {
+      const d = defs[t.kind]
+      const pill = document.createElement('span')
+      pill.className = `trait-pill ${d.cls}`
+      pill.textContent = d.label
+      el.appendChild(pill)
+    }
+  }
+
   function flash(text: string, duration = 0.8) {
     _flashHandle?.cancel()
     $banner.textContent = text
@@ -530,7 +557,59 @@ export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom 
 
   function setAnimating(v: boolean) {
     _animating = v
-    $endTurn.classList.toggle('disabled', v || !gameState.is('player_turn'))
+    updateEndTurnButton()
+  }
+
+  function isTutorialMeldGate(): boolean {
+    return tutorialActive && !tutorialMeldComplete && encounterIdx === 0 && turnCount === 1 && gameState.is('player_turn')
+  }
+
+  function endTurnVoice(tutorialGate = isTutorialMeldGate()): string {
+    if (tutorialGate) return 'MELD FIRST'
+    if (!gameState.is('player_turn')) return 'MARK ACTS'
+    if (energy > 0) return `BANK ${energy} DRAW${energy > 1 ? 'S' : ''}`
+    return 'LET IT ANSWER'
+  }
+
+  function updateEndTurnButton(tutorialGate = isTutorialMeldGate()) {
+    $endTurn.textContent = endTurnVoice(tutorialGate)
+    $endTurn.classList.toggle('disabled', tutorialGate || _animating || !gameState.is('player_turn'))
+  }
+
+  function updateHoldSlots(pulse = false) {
+    const heldCards = deck.hand.filter(c => heldIds.has(c.id))
+    $holdSlots.innerHTML = Array.from({ length: MAX_HOLDS }, (_, i) => {
+      const c = heldCards[i]
+      if (!c) return `<div class="hold-slot${pulse ? ' pulse' : ''}"><span>EMPTY</span></div>`
+      const def = cards.require(c.cardId)
+      return `<div class="hold-slot filled${pulse ? ' pulse' : ''}" style="--hc:#${def.color.toString(16).padStart(6, '0')}"><span>${def.name} ${TIER_ROMAN[c.tier]}</span></div>`
+    }).join('')
+  }
+
+  function traitTell(t: EnemyTrait): { label: string; hint: string; color: number } {
+    if (t.kind === 'immune') return { label: 'IMMUNE', hint: 'status fails, raw damage sticks', color: 0xc4b5fd }
+    if (t.kind === 'armored') return { label: 'ARMORED', hint: `opens with ${t.absorb} shield`, color: 0xfbbf24 }
+    return { label: 'REGEN', hint: `heals ${t.hp} each turn`, color: 0x4ade80 }
+  }
+
+  function showTraitTell() {
+    const t = enemyTraits[0]
+    if (!t) return
+    const tell = traitTell(t)
+    flash(`${tell.label}: ${tell.hint}`, 1.65)
+    const pos = enemy.group.position.clone(); pos.y += CORE_Y
+    ringFx(pos, tell.color, 0.18, 2.0, 0.8, 0.65, 0.08)
+  }
+
+  function intentHint(m: EnemyMove): string {
+    const trait = enemyTraits[0]?.kind
+    if (trait === 'immune') return 'Status cards will not bite. Hit it clean.'
+    if (trait === 'armored') return 'Armor resets before it acts. Poison ignores it.'
+    if (trait === 'regen') return 'It repairs every turn. Spend damage in bursts.'
+    if (m.type === 'attack' && m.status?.target === 'player') return `Adds ${m.status.kind}. Block or end it fast.`
+    if (m.type === 'attack') return 'Incoming damage. Hold only what you can afford.'
+    if (m.type === 'defend') return 'Shield is coming. Set up a bigger meld.'
+    return 'It will heal. Punish before the pulse lands.'
   }
 
   // ── Merge ──────────────────────────────────────────────────────────────
@@ -579,6 +658,9 @@ export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom 
       g1.style.transform = `translate(${toX1}px,${toY1}px) scale(1.1)`
       g2.style.transform = `translate(${toX2}px,${toY2}px) scale(1.1)`
       shake.addTrauma(0.32)   // forge slam — felt in the arena behind the cards
+      hitStop(0.11)
+      const pos = player.group.position.clone(); pos.y += CORE_Y
+      impactRing(pos, def.color, 1.35)
 
       setTimeout(() => {
         // Screen flash
@@ -659,6 +741,7 @@ export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom 
 
   function doMerge(card: GameCard) {
     if (_animating || !gameState.is('player_turn')) return
+    if (isTutorialMeldGate() && card.cardId !== tutorial?.signatureCard) return
     const target = findMergeTarget(card)
     if (!target || card.tier >= MAX_TIER) return
 
@@ -673,6 +756,8 @@ export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom 
     const rect2 = el2?.getBoundingClientRect() ?? null
 
     const newTier = card.tier + 1
+    const completedTutorialMeld = isTutorialMeldGate()
+    if (completedTutorialMeld) tutorialMeldComplete = true
 
     energy -= meldCost
     heldIds.delete(card.id)
@@ -700,17 +785,28 @@ export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom 
       playMeldAnimation(el1, el2, rect1, rect2, def, newTier, card.cardId, () => {
         setAnimating(false)
         renderHand(true)
+        timer.after(0.15, () => flash(
+          completedTutorialMeld
+            ? `${def.name.toUpperCase()} ${TIER_ROMAN[newTier]} MADE · BIGGER CARD, SAME WOUND`
+            : `${def.name.toUpperCase()} ${TIER_ROMAN[newTier]} MADE`,
+          completedTutorialMeld ? 2.0 : 1.0,
+        ))
       })
     } else {
       renderHand(true)
+      flash(`${def.name.toUpperCase()} ${TIER_ROMAN[newTier]} MADE`, 1.0)
     }
   }
 
   function toggleHold(card: GameCard) {
+    let held = false
     if (heldIds.has(card.id)) heldIds.delete(card.id)
-    else if (heldIds.size < MAX_HOLDS) heldIds.add(card.id)
+    else if (heldIds.size < MAX_HOLDS) { heldIds.add(card.id); held = true }
     else return
+    const def = cards.require(card.cardId)
+    flash(held ? `${def.name.toUpperCase()} HELD IN MEMORY` : `${def.name.toUpperCase()} RELEASED`, 0.8)
     renderHand()
+    updateHoldSlots(true)
   }
 
   // ── Hold animations ────────────────────────────────────────────────────
@@ -861,6 +957,7 @@ export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom 
     $hand.innerHTML = ''
     const isPlayerTurn = gameState.is('player_turn')
     const canHoldMore = heldIds.size < MAX_HOLDS
+    const tutorialGate = isTutorialMeldGate()
 
     let dealIdx = 0
     for (const card of deck.hand) {
@@ -869,13 +966,17 @@ export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom 
       const val     = Math.round(variant.value * powerLevel)
       const isHeld    = heldIds.has(card.id)
       const hasMerge  = card.tier < MAX_TIER && !!findMergeTarget(card)
+      const tutorialTarget = tutorialGate && card.cardId === tutorial?.signatureCard && hasMerge
       const tierClass = card.tier > 1 ? ` tier-${card.tier}` : ''
       const mergeClass = hasMerge ? ' mergeable' : ''
       const heldClass  = isHeld ? ' held' : ''
-      const disabled   = !isPlayerTurn || energy < def.cost || _animating
+      const tutorialClass = tutorialGate ? (tutorialTarget ? ' tutorial-target' : ' tutorial-locked') : ''
+      const baseDisabled = !isPlayerTurn || energy < def.cost || _animating
+      const playDisabled = baseDisabled || tutorialGate
+      const visualDisabled = baseDisabled || (tutorialGate && !tutorialTarget)
 
       const el = document.createElement('div')
-      el.className = 'card' + tierClass + mergeClass + heldClass + (disabled ? ' disabled' : '')
+      el.className = 'card' + tierClass + mergeClass + heldClass + tutorialClass + (visualDisabled ? ' disabled' : '')
       el.dataset.cardId = card.id
       el.style.setProperty('--cc', '#' + def.color.toString(16).padStart(6, '0'))
       if (deal) {
@@ -898,15 +999,15 @@ export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom 
       if (isPlayerTurn && !_animating) {
         if (hasMerge) {
           const meldCost = Math.max(0, Math.min(def.cost * 2, MAX_ENERGY) + (modifier?.meldCostDelta ?? 0))
-          const canAfford = energy >= meldCost
+          const canAfford = energy >= meldCost && (!tutorialGate || tutorialTarget)
           const btn = document.createElement('button')
           btn.className = 'merge-btn'
-          btn.textContent = `⬆ MELD (${meldCost}⚡)`
+          btn.textContent = tutorialTarget ? `FORGE FIRST (${meldCost}⚡)` : `⬆ MELD (${meldCost}⚡)`
           btn.disabled = !canAfford
           btn.addEventListener('click', e => { e.stopPropagation(); doMerge(card) })
           el.appendChild(btn)
         }
-        if (isHeld || canHoldMore) {
+        if (!tutorialGate && (isHeld || canHoldMore)) {
           const hbtn = document.createElement('button')
           hbtn.className = 'hold-btn'
           hbtn.textContent = isHeld ? '📌 RELEASE' : '📌 HOLD'
@@ -915,20 +1016,24 @@ export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom 
         }
       }
 
-      el.addEventListener('click', () => { if (!disabled) playCard(card) })
+      el.addEventListener('click', () => { if (!playDisabled) playCard(card) })
       el.addEventListener('mouseenter', () => showCardPreview(bigCardHTML(def, variant.name, variant.desc(val), TIER_ROMAN[card.tier]), el.getBoundingClientRect()))
       el.addEventListener('mouseleave', hideCardPreview)
       $hand.appendChild(el)
     }
 
     if (isPlayerTurn && energy > 0) {
-      $apBonus.textContent = `⚡${energy} left → +${energy} card${energy > 1 ? 's' : ''} next turn`
+      $apBonus.textContent = tutorialGate
+        ? 'First, meld the matching pair. The rest can wait.'
+        : `⚡${energy} left → +${energy} card${energy > 1 ? 's' : ''} next turn`
       $apBonus.classList.add('show')
     } else {
       $apBonus.classList.remove('show')
     }
 
     updateHUD()
+    updateHoldSlots()
+    updateEndTurnButton(tutorialGate)
   }
 
   // ── Animations ──────────────────────────────────────────────────────────
@@ -1108,7 +1213,7 @@ export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom 
     })
   }
 
-  // Overload — sharp charge, then an instant jagged lightning bolt with a fork.
+  // Rupture — sharp charge, then an instant jagged lightning bolt with a fork.
   function animOverload(unit: Unit, targetPos: THREE.Vector3, color: number, onHit: () => void) {
     eyeNarrow(unit)
     const mat = unit.body.material
@@ -1137,7 +1242,7 @@ export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom 
     })
   }
 
-  // Slash — a fast forward dash with a whirling ring, then a crescent of sparks.
+  // Needle — a fast forward dash with a whirling ring, then a crescent of sparks.
   function animSlash(unit: Unit, targetPos: THREE.Vector3, color: number, onHit: () => void) {
     const startX = unit.group.position.x
     const dir = Math.sign(targetPos.x - startX)
@@ -1506,6 +1611,7 @@ export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom 
   function startEncounter(idx: number) {
     clearHoldGhosts()
     heldIds.clear()
+    updateHoldSlots()
     const def = encounters[idx]
     encounterIdx = idx
     ENEMY_MOVES = def.moves
@@ -1552,9 +1658,11 @@ export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom 
       mirrorEntrance(scale, startPlayerTurn)
     } else if (idx > 0) {
       flash(`MARK ${idx + 1}  ·  ${def.name.toUpperCase()}`, 1.0)
-      timer.after(1.0, startPlayerTurn)
+      timer.after(0.9, showTraitTell)
+      timer.after(1.45, startPlayerTurn)
     } else {
-      startPlayerTurn()
+      timer.after(0.25, showTraitTell)
+      timer.after(0.85, startPlayerTurn)
     }
   }
 
@@ -1655,9 +1763,11 @@ export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom 
     const m  = enemyNextMove
     const cc = '#' + m.color.toString(16).padStart(6, '0')
     const detail = m.label.replace(/^\S+\s+/, '')   // drop the leading emoji — the glyph carries it now
-    $intentText.innerHTML = `<span class="intent-chip" style="--ic:${cc}">`
+    $intentText.innerHTML = `<span class="intent-stack" style="--ic:${cc}">`
+      + `<span class="intent-chip">`
       + `<span class="intent-glyph">${buildIcon(moveShape(m), m.color)}</span>`
       + `<span class="intent-name">${detail}</span></span>`
+      + `<span class="intent-hint">${intentHint(m)}</span></span>`
   }
 
   // ── Enemy turn ───────────────────────────────────────────────────────────
@@ -1671,6 +1781,7 @@ export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom 
     $energyPips.forEach(p => p.classList.add('spent'))
     $hand.classList.add('dimmed')
     $enemyIntent.classList.remove('show')
+    updateEndTurnButton(false)
 
     // Passive traits resolve before the enemy acts.
     for (const t of enemyTraits) {
@@ -1685,6 +1796,7 @@ export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom 
       }
     }
     updateHUD()
+    updateEndTurnButton()
 
     flash('MARK ACTS')
 
@@ -1781,7 +1893,8 @@ export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom 
     $hand.classList.remove('dimmed')
     timer.after(0.45, () => $enemyIntent.classList.add('show'))
     flash(`TURN ${turnCount}`, 0.6)
-    if (isFirstRun && turnCount === 1) timer.after(0.75, () => flash('HOLD to carry  ·  MELD pairs to forge', 2.2))
+    if (isTutorialMeldGate()) timer.after(0.75, () => flash('TWO MATCHING CARDS. MAKE ONE.', 2.4))
+    else if (isFirstRun && turnCount === 1) timer.after(0.75, () => flash('HOLD to carry  ·  MELD pairs to forge', 2.2))
     animateHoldReturn(() => {
       setAnimating(false)
       renderHand(true)
@@ -1790,7 +1903,12 @@ export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom 
 
   $endTurn.addEventListener('click', () => {
     if (!gameState.is('player_turn') || _animating) return
+    if (isTutorialMeldGate()) {
+      flash('MELD THE PAIR FIRST', 1.0)
+      return
+    }
     $endTurn.classList.add('disabled')
+    updateEndTurnButton(false)
     bonusDraw = energy
     if (energy > 0) animateApDraw(energy)
     animateHoldEndTurn()
@@ -1885,10 +2003,8 @@ export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom 
           progression.addFragments(10)
           flash(`MARK ${encounterIdx + 1} RETURNED  ⬡ +10`, 1.2)
           updateHUD()
-          await new Promise<void>(r => timer.after(0.8, r))
-          // The fallen opponent's parting words, before you collect and move on.
-          if (onAfterEncounter) await onAfterEncounter(encounters[encounterIdx].name, encounterIdx)
-          const reward = await showRewardScreen(encounterIdx, build)
+          await new Promise<void>(r => timer.after(0.55, r))
+          const reward = await showRewardScreen({ encIdx: encounterIdx, build, playerClass, enemyTraits, enemyName: encounters[encounterIdx].name })
           applyReward(reward)
           saveCheckpoint({ campaignRunNumber: runNumber, encounterIdx: encounterIdx + 1, playerHP: playerStats.get('hp'), runFragments })
           await enterEncounter(encounterIdx + 1)
@@ -1900,12 +2016,12 @@ export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom 
           gameState.set('game_over')
           sfx.victory()
           victoryMoment(() => {
-            $goTitle.textContent = isFinale ? 'MELD TO ALL HELD' : 'VICTORY'
+            $goTitle.textContent = isFinale ? 'MELD TO ALL HELD' : 'RUN HELD'
             $goTitle.style.color = isFinale ? '#a78bfa' : '#22d3ee'
             $goSub.textContent = isFinale
               ? `Your echo is held · ${turnCount} turns · ⬡ +${runFragments}`
-              : `All marks returned · ${turnCount} turns · ⬡ +${runFragments}`
-            if (onVictory) { _endMode = 'victory'; $goRestart.textContent = isFinale ? 'RETURN TO THE MELD →' : 'CONTINUE JOURNEY →' }
+              : `Three marks held · ${turnCount} turns · ⬡ +${runFragments}`
+            if (onVictory) { _endMode = 'victory'; $goRestart.textContent = isFinale ? 'RETURN TO THE MELD →' : 'RETURN TO THE RUN →' }
             $gameOver.classList.add('show')
           })
         }
@@ -1926,7 +2042,7 @@ export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom 
             $goTitle.textContent = 'FORM LOST'
             $goTitle.style.color = '#ef4444'
             $goSub.textContent = `Mark ${encounterIdx + 1} held · ${turnCount} turns · ⬡ +${runFragments}`
-            if (onDefeat) { _endMode = 'defeat'; $goRestart.textContent = 'END JOURNEY' }
+            if (onDefeat) { _endMode = 'defeat'; $goRestart.textContent = 'RETURN UNHELD' }
             $gameOver.classList.add('show')
           })()
         })
@@ -1997,6 +2113,7 @@ export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom 
     cancelAnimationFrame(_frameId)
     renderer.dispose()
     renderer.domElement.remove()
+    $holdSlots.remove()
     document.body.classList.remove('game-active')
     $gameOver.classList.remove('show')
   }

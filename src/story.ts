@@ -3,7 +3,7 @@
 // opponent; choices set flags / mutate vars that later beats branch on.
 //
 // Wiring: title.ts seeds each beat from campaign.story, plays it via playBeat(), and
-// writes the result back (saveCampaign) — so a choice before the Whelp still echoes
+// writes the result back (saveCampaign) — so a choice before the first mark still echoes
 // before the Mirror, across reloads. battle.ts just awaits the hook; it owns no story.
 
 import { createDialogueRunner, type DialogueConversation, type DialogueSnapshot } from './engine/branchDialogue.js'
@@ -28,63 +28,42 @@ export interface StoryBeat {
   cutscene?: boolean   // true → letterboxed, centered, cinematic framing
 }
 
-type BeatSlot = { before?: StoryBeat; after?: StoryBeat }
-
 const inc = (c: StoryCtx, key: string, by = 1) => { c.vars[key] = (c.vars[key] ?? 0) + by }
 
-// ── Example beats (DRAFT prose — the system is the deliverable) ──────────────
-// The opponents carry the talking. Each one knew him; each is trying to make him
-// remember. On the first time through (ctx.cycles === 0) he never gets there. Once
-// the Mirror has been beaten at least once (cycles > 0), the loop starts to stick.
+// ── First-slice beats ────────────────────────────────────────────────────────
+// Every opponent is something the player cut away. Most get one line: identity,
+// threat, and mechanical pressure in the same breath. Choices remain only where
+// their flags echo later.
 
 const WHELP_BEFORE: DialogueConversation<StoryCtx> = {
-  id: 'beat-whelp', start: 'a',
+  id: 'beat-first-scar', start: 'a',
   nodes: [
-    { id: 'a', speaker: 'WHELP',
+    { id: 'a', speaker: 'FIRST SCAR',
       text: c => {
-        if (c.rings >= 3) return 'You come back heavier every time. Rings stacked like years — trophies of selves you don\'t remember being.'
-        if (c.rings >= 1) return c.cycles > 0
-          ? 'You came back — ringed now. Marked by wins you can\'t recall winning.'
-          : 'You came back wearing a ring that wasn\'t there before. Where did you earn it?'
-        return c.cycles > 0
-          ? 'You came back. You always come back — but this time there\'s something behind your eyes.'
-          : 'You came back. You always come back, and you never once remember why.'
+        if (c.rings >= 3) return 'All those rings. Still the first cut opens.'
+        if (c.cycles > 0) return 'Back. Your hand arrived first.'
+        return 'You cut me out first. Do it again.'
       },
-      next: 'b' },
-    { id: 'b', speaker: 'WHELP', text: 'Look at me. You know me. Say you know me.',
       choices: [
-        { label: 'I don\'t know you.',  setFlag: 'denied_whelp', onSelect: c => inc(c, 'forgotten'), next: 'c' },
-        { label: '...should I?',        setFlag: 'doubted_whelp', onSelect: c => inc(c, 'doubt'),    next: 'c' },
+        { label: 'Stay cut.',        setFlag: 'denied_whelp',  onSelect: c => inc(c, 'forgotten'), next: undefined },
+        { label: 'Come back wrong.', setFlag: 'doubted_whelp', onSelect: c => inc(c, 'doubt'),     next: undefined },
       ] },
-    { id: 'c', speaker: 'WHELP',
-      text: c => c.cycles > 0
-        ? 'Closer. You almost had it. Put me down again — maybe it surfaces.'
-        : 'No. You don\'t. Not yet. One day the door opens. Not today.',
-      next: undefined },
   ],
 }
 
 const BRUTE_BEFORE: DialogueConversation<StoryCtx> = {
   id: 'beat-brute', start: 'a',
   nodes: [
-    // Branches on what he said to the Whelp — the refusal carries forward.
-    { id: 'a', speaker: 'BRUTE',
+    { id: 'a', speaker: 'IRON KNUCKLE',
       text: (c, f) => {
-        if (c.rings >= 2) return f.has('denied_whelp')
-          ? 'Denied the small one — and still you turn up ringed like a champion. Trophies from fights you don\'t even mourn. Stubborn. You always were.'
-          : 'Look at you. Ringed up like a victor, not a memory of the wars that earned them. Heavy, and hollow with it.'
-        return f.has('denied_whelp')
-          ? 'The small one told me. You denied it to its face. Stubborn — you always were.'
-          : 'Still wandering in blind. Still no idea what you\'re clawing your way back toward.'
+        if (f.has('denied_whelp')) return 'You kept the scar out. Try that with a fist.'
+        if (c.rings >= 2) return 'Rings outside. Soft underneath.'
+        if (c.cycles > 0) return 'Your wrist remembers the weak plate.'
+        return 'You threw away strength. It learned armor.'
       },
-      next: 'b' },
-    { id: 'b', speaker: 'BRUTE',
-      text: c => c.cycles > 0
-        ? 'But you\'ve walked this before. The shape of you remembers even when the rest won\'t.'
-        : 'Hit me hard enough and maybe it shakes something loose. It never has yet.',
       choices: [
-        { label: 'There\'s nothing to remember.', setFlag: 'denied_brute', onSelect: c => inc(c, 'forgotten'), next: undefined },
-        { label: 'Then knock it loose.',          setFlag: 'reached_brute', onSelect: c => inc(c, 'reaching'), next: undefined },
+        { label: 'Find the seam.',   setFlag: 'reached_brute', onSelect: c => inc(c, 'reaching'),  next: undefined },
+        { label: 'Break the plate.', setFlag: 'denied_brute',  onSelect: c => inc(c, 'forgotten'), next: undefined },
       ] },
   ],
 }
@@ -93,39 +72,31 @@ const MIRROR_BEFORE: DialogueConversation<StoryCtx> = {
   id: 'beat-mirror', start: 'a',
   nodes: [
     { id: 'a', speaker: 'YOUR ECHO',
-      text: c => c.rings >= 1
-        ? 'Look at us. The same rings, turning the same way — I won them the times you did. And still you don\'t know your own face.'
-        : 'You don\'t even know your own face. After every one of them tried to show you.',
-      next: 'b' },
-    { id: 'b', speaker: 'YOUR ECHO',
       text: c => c.cycles > 0
-        ? 'But it\'s sticking now. You\'ve stood here before. Finish me and you keep a little more of it.'
-        : 'You\'ll beat me. You\'ll return to the Meld. And you still won\'t understand what you returned to — not the first time.',
+        ? 'You know this face now. That makes it worse.'
+        : 'I wore every mark you returned. You wore me.',
       choices: [
-        { label: 'I am not you.',            setFlag: 'denied_self', onSelect: c => inc(c, 'denial'), next: 'c' },
-        { label: 'Then tell me what I am.',  setFlag: 'asked_self',  next: 'c' },
+        { label: 'I am not you.',      setFlag: 'denied_self', onSelect: c => inc(c, 'denial'), next: 'c' },
+        { label: 'Then come back in.', setFlag: 'asked_self',  next: 'c' },
       ] },
     { id: 'c', speaker: 'YOUR ECHO',
       text: c => c.cycles > 0
-        ? 'You already know. You just won\'t say it yet. Come on. Again.'
-        : 'No. You have to arrive there yourself. Come back when you can.',
+        ? 'Again, then. Hold more this time.'
+        : 'Win. The Meld will erase the difference.',
       next: undefined },
   ],
 }
 
 // ── Run 0, third mark ─────────────────────────────────────────────────────────
-const CORE_BEFORE: DialogueConversation<StoryCtx> = {
-  id: 'beat-core', start: 'a',
+const COUNTING_HEART_BEFORE: DialogueConversation<StoryCtx> = {
+  id: 'beat-counting-heart', start: 'a',
   nodes: [
-    { id: 'a', speaker: 'CORE',
-      text: c => c.rings >= 1
-        ? 'Rings. Accretion. You log every trophy and lose the one record that matters. Predictable.'
-        : 'You run the loop again. Input, struggle, forget. I have counted your returns. You have not.',
-      next: 'b' },
-    { id: 'b', speaker: 'CORE',
-      text: (c, f) => f.has('reached_brute')
-        ? 'The big one says you reached for it. Reaching is not remembering — but it is a nonzero value. Unusual, for you.'
-        : 'You will dismantle me and feel nothing. As designed.',
+    { id: 'a', speaker: 'COUNTING HEART',
+      text: (c, f) => {
+        if (f.has('reached_brute')) return 'Good seam. Now outrun the pulse.'
+        if (c.rings >= 1) return 'More rings. Same missing number.'
+        return 'I count every return. You call each one first.'
+      },
       next: undefined },
   ],
 }
@@ -136,13 +107,11 @@ const WARDEN_BEFORE: DialogueConversation<StoryCtx> = {
   nodes: [
     { id: 'a', speaker: 'WARDEN',
       text: c => c.rings >= 2
-        ? 'Back, and decorated — two rings turning, maybe more. I kept the gate the whole while you were gone. Somebody had to.'
-        : 'Back already. The gate remembers your hand even when your hand forgets the gate.',
-      next: 'b' },
-    { id: 'b', speaker: 'WARDEN', text: 'Ask me what I keep behind it. Go on. Ask.',
+        ? 'The lock knows you under the rings.'
+        : 'You built me. You hid the key in your hand.',
       choices: [
-        { label: 'What do you guard?',     setFlag: 'asked_warden',     next: undefined },
-        { label: 'Nothing worth keeping.', setFlag: 'dismissed_warden', onSelect: c => inc(c, 'forgotten'), next: undefined },
+        { label: 'What did I seal?', setFlag: 'asked_warden',     next: undefined },
+        { label: 'Open.',            setFlag: 'dismissed_warden', onSelect: c => inc(c, 'forgotten'), next: undefined },
       ] },
   ],
 }
@@ -152,11 +121,8 @@ const RAMPART_BEFORE: DialogueConversation<StoryCtx> = {
   nodes: [
     { id: 'a', speaker: 'RAMPART',
       text: c => c.rings >= 2
-        ? 'You wear the wins on the outside now — rings turning, bright. Inside still hollow as a struck drum.'
-        : 'Still hollow. Still throwing yourself at walls, hoping one of them gives.',
-      next: 'b' },
-    { id: 'b', speaker: 'RAMPART',
-      text: 'I was raised to hold a line you drew. You don\'t remember drawing it. Tear me down anyway — you always do.',
+        ? 'Trophies knock. The wall stays shut.'
+        : 'I am the line you drew and fled.',
       next: undefined },
   ],
 }
@@ -165,14 +131,9 @@ const WELLSPRING_BEFORE: DialogueConversation<StoryCtx> = {
   id: 'beat-wellspring', start: 'a',
   nodes: [
     { id: 'a', speaker: 'WELLSPRING',
-      text: c => c.rings >= 2
-        ? 'So many rings, and not one of them water. You collect the shape of returning and never the source of it.'
-        : 'You came back thirsty and can\'t say for what. I am where you used to drink.',
-      next: 'b' },
-    { id: 'b', speaker: 'WELLSPRING',
       text: c => c.cycles > 0
-        ? 'It\'s rising in you. Slowly. Spill me and let it rise the faster.'
-        : 'Not today. The well is deep and you are shallow this time through. Come back deeper.',
+        ? 'You remember the thirst. I remember the flood.'
+        : 'You called it thirst. It was hunger.',
       next: undefined },
   ],
 }
@@ -182,14 +143,9 @@ const SENTINEL_BEFORE: DialogueConversation<StoryCtx> = {
   id: 'beat-sentinel', start: 'a',
   nodes: [
     { id: 'a', speaker: 'SENTINEL',
-      text: c => c.rings >= 3
-        ? 'Three rings. Four. A whole reliquary orbiting a thing that cannot name itself. I have stood here every time you arrived wearing them.'
-        : 'You reach the deep ones now. The marks that knew you best. We are harder to forget — and you will manage it anyway.',
-      next: 'b' },
-    { id: 'b', speaker: 'SENTINEL',
-      text: (c, f) => f.has('asked_warden')
-        ? 'The Warden said you asked what it guards. It guards this: the road back to yourself. I am the last gate on that road.'
-        : 'I will not tell you what I keep. You have to want it first. You never have.',
+      text: (_c, f) => f.has('asked_warden')
+        ? 'You asked what was sealed. Stand still.'
+        : 'Last gate. First name behind it.',
       next: undefined },
   ],
 }
@@ -199,11 +155,8 @@ const BASTION_BEFORE: DialogueConversation<StoryCtx> = {
   nodes: [
     { id: 'a', speaker: 'BASTION',
       text: c => c.rings >= 3
-        ? 'Ringed like a monument to wars no one attended but us. A heavy crown on a light head.'
-        : 'Almost to the mirror now. You can feel it — the shape at the end of the road, wearing your walk.',
-      next: 'b' },
-    { id: 'b', speaker: 'BASTION',
-      text: 'Break me and there is one wall left standing. It looks exactly like you. It always has.',
+        ? 'A monument cannot remember the war.'
+        : 'Past me: your posture without your mercy.',
       next: undefined },
   ],
 }
@@ -212,17 +165,12 @@ const MAW_BEFORE: DialogueConversation<StoryCtx> = {
   id: 'beat-maw', start: 'a',
   nodes: [
     { id: 'a', speaker: 'MAW',
-      text: c => c.rings >= 3
-        ? 'Come closer, ringed one. All those trophies, and still the hungriest thing in the room is the hole where your name should sit.'
-        : 'You always taste the same. Empty. I could swallow you whole and learn nothing you don\'t already refuse to know.',
-      next: 'b' },
-    { id: 'b', speaker: 'MAW',
       text: c => c.cycles > 0
-        ? 'But it has almost surfaced. One more swallow. Put me down and step into your own reflection.'
-        : 'Feed me. Maybe what you give up, I hand back.',
+        ? 'I still taste the name. Open me.'
+        : 'I ate what you forgot. Open me.',
       choices: [
-        { label: 'Take it, then.',       setFlag: 'fed_maw',    onSelect: c => inc(c, 'reaching'),  next: undefined },
-        { label: 'I keep what is mine.', setFlag: 'denied_maw', onSelect: c => inc(c, 'forgotten'), next: undefined },
+        { label: 'Give it back.', setFlag: 'fed_maw',    onSelect: c => inc(c, 'reaching'),  next: undefined },
+        { label: 'Keep choking.', setFlag: 'denied_maw', onSelect: c => inc(c, 'forgotten'), next: undefined },
       ] },
   ],
 }
@@ -237,13 +185,11 @@ const WISP_BEFORE: DialogueConversation<StoryCtx> = {
   nodes: [
     { id: 'a', speaker: 'WISP',
       text: c => c.rings >= 1
-        ? 'You flicker into view ringed and weighted, and I am the one called insubstantial. I remember you when you were lighter than me.'
-        : 'You came back thinner than a thought. So did I. We were always the parts of each other that wouldn\'t hold.',
-      next: 'b' },
-    { id: 'b', speaker: 'WISP', text: 'You\'ve walked further than this before. Say you feel it. Lie if you have to.',
+        ? 'Heavy with rings. Still coming apart.'
+        : 'We are what the Meld failed to hold.',
       choices: [
-        { label: 'I feel nothing.',   setFlag: 'denied_wisp',  onSelect: c => inc(c, 'forgotten'), next: undefined },
-        { label: 'I feel the edges.', setFlag: 'reached_wisp',  onSelect: c => inc(c, 'reaching'),  next: undefined },
+        { label: 'Nothing there.',   setFlag: 'denied_wisp',  onSelect: c => inc(c, 'forgotten'), next: undefined },
+        { label: 'I feel the edge.', setFlag: 'reached_wisp', onSelect: c => inc(c, 'reaching'),  next: undefined },
       ] },
   ],
 }
@@ -253,13 +199,8 @@ const HUSK_BEFORE: DialogueConversation<StoryCtx> = {
   nodes: [
     { id: 'a', speaker: 'HUSK',
       text: (c, f) => f.has('denied_wisp')
-        ? 'The wisp said you felt nothing. Of course. We match — two shells knocking, neither one home.'
-        : 'Hollow meets hollow. At least I know what I am: the part of you that stayed empty on purpose.',
-      next: 'b' },
-    { id: 'b', speaker: 'HUSK',
-      text: c => c.rings >= 2
-        ? 'All those rings, ringing on the outside of a shell. Crack me open and listen — same silence in us both.'
-        : 'Break me. There\'s nothing in here to spill. There never was. You made sure.',
+        ? 'No feeling? Knock. Hear yourself.'
+        : c.rings >= 2 ? 'Rings on a sealed room. Knock.' : 'Break the shell. Keep the echo.',
       next: undefined },
   ],
 }
@@ -268,14 +209,9 @@ const BLOOM_BEFORE: DialogueConversation<StoryCtx> = {
   id: 'beat-bloom', start: 'a',
   nodes: [
     { id: 'a', speaker: 'BLOOM',
-      text: c => c.rings >= 1
-        ? 'You come back ringed and grim while I come back flowering. I grew from the parts of you that wanted to stay.'
-        : 'Every loop I open a little wider; every loop you close. We are the same root, choosing differently.',
-      next: 'b' },
-    { id: 'b', speaker: 'BLOOM',
       text: (c, f) => f.has('reached_wisp')
-        ? 'The wisp said you reached. Good. Cut me down and let what blooms in me settle back into you.'
-        : 'Wilt me, then. I\'ll only grow back. So will you. That was always the trouble.',
+        ? 'You felt the edge. I grew over it.'
+        : c.rings >= 1 ? 'You grew rings. I grew roots.' : 'You cut yourself back. I kept growing.',
       next: undefined },
   ],
 }
@@ -286,10 +222,9 @@ const ZEALOT_BEFORE: DialogueConversation<StoryCtx> = {
   nodes: [
     { id: 'a', speaker: 'ZEALOT',
       text: c => c.rings >= 2
-        ? 'You wear your wins like relics and believe in none of them. I carry no shield because I believe in everything. Pity we can\'t trade.'
-        : 'You came back doubting, as you do. I never doubt. That is the only difference between us — and it is the whole world.',
-      next: 'b' },
-    { id: 'b', speaker: 'ZEALOT', text: 'Strike me down. I\'ll go gladly. Conviction doesn\'t need to survive to be right.', next: undefined },
+        ? 'You wear relics. I need no proof.'
+        : 'You doubt. I burn. Only one of us needs armor.',
+      next: undefined },
   ],
 }
 
@@ -297,14 +232,9 @@ const PHALANX_BEFORE: DialogueConversation<StoryCtx> = {
   id: 'beat-phalanx', start: 'a',
   nodes: [
     { id: 'a', speaker: 'PHALANX',
-      text: c => c.rings >= 2
-        ? 'One ringed figure against a wall of us. You were a line in this formation once — before you broke ranks to go forgetting.'
-        : 'We hold together because we remember why we stand. You stand alone because you can\'t. Come. Test the wall.',
-      next: 'b' },
-    { id: 'b', speaker: 'PHALANX',
       text: c => c.cycles > 0
-        ? 'You\'ve cracked us before. The shape of the gap you leave is starting to look like a name.'
-        : 'Push through if you can. There is only more of you on the other side.',
+        ? 'The gap knows your shape.'
+        : 'We remember the order. You remember standing alone.',
       next: undefined },
   ],
 }
@@ -314,10 +244,9 @@ const THICKET_BEFORE: DialogueConversation<StoryCtx> = {
   nodes: [
     { id: 'a', speaker: 'THICKET',
       text: c => c.rings >= 2
-        ? 'Rings turning above the bramble. You tended your trophies and let the rest of yourself grow over, wild and nameless.'
-        : 'Every return you neglect a little more, and I fill the space. I am everything about you left untended.',
-      next: 'b' },
-    { id: 'b', speaker: 'THICKET', text: 'Burn me back. Clear the path. You won\'t like how short it is to the center.', next: undefined },
+        ? 'You tended trophies. I took the garden.'
+        : 'Every return leaves something untended. I flower there.',
+      next: undefined },
   ],
 }
 
@@ -326,14 +255,9 @@ const NULLITY_BEFORE: DialogueConversation<StoryCtx> = {
   id: 'beat-nullity', start: 'a',
   nodes: [
     { id: 'a', speaker: 'NULLITY',
-      text: c => c.rings >= 3
-        ? 'Rings, marks, trophies — and underneath, me. I am the erasing you do between every loop. I keep what you throw away. It is mostly you.'
-        : 'You unmake yourself each time the door shuts. I am made of the unmade. Hello again. You won\'t remember saying it.',
-      next: 'b' },
-    { id: 'b', speaker: 'NULLITY',
-      text: (c, f) => f.has('reached_wisp')
-        ? 'You reached, early on. Reach again now, while I take this from you, and maybe the subtraction comes out positive.'
-        : 'Undo me and you only undo a little less of yourself. Best offer you\'ve had in a hundred returns.',
+      text: (_c, f) => f.has('reached_wisp')
+        ? 'You reached once. I am what slipped away.'
+        : 'I keep everything you erase. Mostly you.',
       next: undefined },
   ],
 }
@@ -343,13 +267,8 @@ const COLOSSUS_BEFORE: DialogueConversation<StoryCtx> = {
   nodes: [
     { id: 'a', speaker: 'COLOSSUS',
       text: c => c.rings >= 3
-        ? 'All your little rings, turning. I am the size of everything you\'ve forgotten. Set your trophies against that and see what they weigh.'
-        : 'You are so small against what you don\'t remember. And still you come. I\'ll grant you that — you always come.',
-      next: 'b' },
-    { id: 'b', speaker: 'COLOSSUS',
-      text: c => c.cycles > 0
-        ? 'You\'ve toppled me before. Each time you stand on the rubble a little taller. Climb. The mirror is just past my shoulder.'
-        : 'Move me if you can. There is a road behind me you carved yourself.',
+        ? 'Your rings turn. I do not.'
+        : 'Move me. You put me here.',
       next: undefined },
   ],
 }
@@ -358,111 +277,44 @@ const LEVIATHAN_BEFORE: DialogueConversation<StoryCtx> = {
   id: 'beat-leviathan', start: 'a',
   nodes: [
     { id: 'a', speaker: 'LEVIATHAN',
-      text: c => c.rings >= 3
-        ? 'Ringed and crowned, and still you sink the same. I am every depth you went down into and came back up forgetting.'
-        : 'You drown here every loop. You surface every loop. You never once bring anything back from the bottom. I am the bottom.',
-      next: 'b' },
-    { id: 'b', speaker: 'LEVIATHAN',
       text: c => c.cycles > 0
-        ? 'But you hold your breath longer now. Put me under. What waits past me is wearing your face.'
-        : 'Go down swinging if you must. The thing after me will look like you and know you better than this water does.',
+        ? 'You hold your breath longer. The bottom still knows you.'
+        : 'You surface empty. I keep the bottom.',
       choices: [
-        { label: 'Then let me drown.',           setFlag: 'sank_leviathan', onSelect: c => inc(c, 'reaching'), next: undefined },
-        { label: 'I\'ve held my breath before.', setFlag: 'held_leviathan', next: undefined },
+        { label: 'Take me under.',    setFlag: 'sank_leviathan', onSelect: c => inc(c, 'reaching'), next: undefined },
+        { label: 'I know this depth.', setFlag: 'held_leviathan', next: undefined },
       ] },
   ],
 }
-
-// ── Outros — the fallen opponent's parting words, played on the non-final fights
-// of a run (immune + armored), just before the reward. Terse by design; the regen
-// run-enders and the Mirror close on their own screens instead. ─────────────────
-
-// Default lineup
-const WHELP_AFTER: DialogueConversation<StoryCtx> = { id: 'beat-whelp-after', start: 'a',
-  nodes: [{ id: 'a', speaker: 'WHELP', next: undefined,
-    text: c => c.cycles > 0
-      ? 'Down again — but you almost held my face that time. Almost. Next door. Go.'
-      : 'Down again. You\'ll forget me before the next door. One of these times you won\'t. I\'ll wait.' }] }
-
-const BRUTE_AFTER: DialogueConversation<StoryCtx> = { id: 'beat-brute-after', start: 'a',
-  nodes: [{ id: 'a', speaker: 'BRUTE', next: undefined,
-    text: (c, f) => f.has('reached_brute')
-      ? 'You reached, and got a fistful of nothing. Still more than you came with. Move.'
-      : 'Knocked loose — nothing. Figures. The next one knew you better than I did anyway.' }] }
-
-const WARDEN_AFTER: DialogueConversation<StoryCtx> = { id: 'beat-warden-after', start: 'a',
-  nodes: [{ id: 'a', speaker: 'WARDEN', next: undefined,
-    text: 'The gate opens. It always opens for you, and you always walk through it empty-handed. Go on.' }] }
-
-const RAMPART_AFTER: DialogueConversation<StoryCtx> = { id: 'beat-rampart-after', start: 'a',
-  nodes: [{ id: 'a', speaker: 'RAMPART', next: undefined,
-    text: 'A wall comes down and for half a breath you feel the wind behind it. Did you? ...No. Onward.' }] }
-
-const SENTINEL_AFTER: DialogueConversation<StoryCtx> = { id: 'beat-sentinel-after', start: 'a',
-  nodes: [{ id: 'a', speaker: 'SENTINEL', next: undefined,
-    text: c => c.cycles > 0
-      ? 'The last gate gives. The road to your own face is open — and this time you are looking at it.'
-      : 'The last gate gives. What waits ahead wears your shape. Try not to flinch from it.' }] }
-
-const BASTION_AFTER: DialogueConversation<StoryCtx> = { id: 'beat-bastion-after', start: 'a',
-  nodes: [{ id: 'a', speaker: 'BASTION', next: undefined,
-    text: 'One wall left, and it is you. I held as long as stone can. I am sorry it has to be a mirror.' }] }
-
-// Alternate lineup
-const WISP_AFTER: DialogueConversation<StoryCtx> = { id: 'beat-wisp-after', start: 'a',
-  nodes: [{ id: 'a', speaker: 'WISP', next: undefined,
-    text: 'I scatter so easily — so do you. Carry a piece of me down with you. Maybe it sticks this time.' }] }
-
-const HUSK_AFTER: DialogueConversation<StoryCtx> = { id: 'beat-husk-after', start: 'a',
-  nodes: [{ id: 'a', speaker: 'HUSK', next: undefined,
-    text: 'Cracked open, and nothing rattles out. Told you. Go be hollow nearer the center.' }] }
-
-const ZEALOT_AFTER: DialogueConversation<StoryCtx> = { id: 'beat-zealot-after', start: 'a',
-  nodes: [{ id: 'a', speaker: 'ZEALOT', next: undefined,
-    text: 'I die certain; you live doubting. Tell me who got the better end of it. ...You can\'t. Go.' }] }
-
-const PHALANX_AFTER: DialogueConversation<StoryCtx> = { id: 'beat-phalanx-after', start: 'a',
-  nodes: [{ id: 'a', speaker: 'PHALANX', next: undefined,
-    text: 'Ranks broken. The gap I leave still has your shape in it. Fill it someday. You, maybe.' }] }
-
-const NULLITY_AFTER: DialogueConversation<StoryCtx> = { id: 'beat-nullity-after', start: 'a',
-  nodes: [{ id: 'a', speaker: 'NULLITY', next: undefined,
-    text: 'You unmade the unmaker. Less of you to lose now. Spend what is left carefully past here.' }] }
-
-const COLOSSUS_AFTER: DialogueConversation<StoryCtx> = { id: 'beat-colossus-after', start: 'a',
-  nodes: [{ id: 'a', speaker: 'COLOSSUS', next: undefined,
-    text: c => c.cycles > 0
-      ? 'Moved, at last. Stand on the rubble — higher — yes. Now you can see who waits. You know him.'
-      : 'Something my size, and you moved it. Stand tall on what is left. You can almost see who is waiting.' }] }
-
-// Keyed by enemy name (unique across all opponents). before = intro beat; after = outro.
-const BEATS: Record<string, BeatSlot> = {
+// Keyed by enemy name. There are no post-fight dialogue stops: defeat flows
+// straight into the reward or evolution decision.
+const BEATS: Record<string, StoryBeat> = {
   // Default lineup (cycle 0, 2, 4 …)
-  Whelp:        { before: { conv: WHELP_BEFORE,      cutscene: true }, after: { conv: WHELP_AFTER } },
-  Brute:        { before: { conv: BRUTE_BEFORE },                      after: { conv: BRUTE_AFTER } },
-  CORE:         { before: { conv: CORE_BEFORE } },
-  Warden:       { before: { conv: WARDEN_BEFORE },                     after: { conv: WARDEN_AFTER } },
-  Rampart:      { before: { conv: RAMPART_BEFORE },                    after: { conv: RAMPART_AFTER } },
-  Wellspring:   { before: { conv: WELLSPRING_BEFORE } },
-  Sentinel:     { before: { conv: SENTINEL_BEFORE },                   after: { conv: SENTINEL_AFTER } },
-  Bastion:      { before: { conv: BASTION_BEFORE },                    after: { conv: BASTION_AFTER } },
-  Maw:          { before: { conv: MAW_BEFORE,        cutscene: true } },
+  'First Scar':     { conv: WHELP_BEFORE, cutscene: true },
+  'Iron Knuckle':   { conv: BRUTE_BEFORE },
+  'Counting Heart': { conv: COUNTING_HEART_BEFORE },
+  Warden:           { conv: WARDEN_BEFORE },
+  Rampart:          { conv: RAMPART_BEFORE },
+  Wellspring:       { conv: WELLSPRING_BEFORE },
+  Sentinel:         { conv: SENTINEL_BEFORE },
+  Bastion:          { conv: BASTION_BEFORE },
+  Maw:              { conv: MAW_BEFORE, cutscene: true },
   // Alternate lineup (cycle 1, 3, 5 …)
-  Wisp:         { before: { conv: WISP_BEFORE,       cutscene: true }, after: { conv: WISP_AFTER } },
-  Husk:         { before: { conv: HUSK_BEFORE },                       after: { conv: HUSK_AFTER } },
-  Bloom:        { before: { conv: BLOOM_BEFORE } },
-  Zealot:       { before: { conv: ZEALOT_BEFORE },                     after: { conv: ZEALOT_AFTER } },
-  Phalanx:      { before: { conv: PHALANX_BEFORE },                    after: { conv: PHALANX_AFTER } },
-  Thicket:      { before: { conv: THICKET_BEFORE } },
-  Nullity:      { before: { conv: NULLITY_BEFORE },                    after: { conv: NULLITY_AFTER } },
-  Colossus:     { before: { conv: COLOSSUS_BEFORE },                   after: { conv: COLOSSUS_AFTER } },
-  Leviathan:    { before: { conv: LEVIATHAN_BEFORE, cutscene: true } },
+  Wisp:             { conv: WISP_BEFORE, cutscene: true },
+  Husk:             { conv: HUSK_BEFORE },
+  Bloom:            { conv: BLOOM_BEFORE },
+  Zealot:           { conv: ZEALOT_BEFORE },
+  Phalanx:          { conv: PHALANX_BEFORE },
+  Thicket:          { conv: THICKET_BEFORE },
+  Nullity:          { conv: NULLITY_BEFORE },
+  Colossus:         { conv: COLOSSUS_BEFORE },
+  Leviathan:        { conv: LEVIATHAN_BEFORE, cutscene: true },
   // The 10th — the Mirror (both lineups)
-  'YOUR ECHO':  { before: { conv: MIRROR_BEFORE,     cutscene: true } },
+  'YOUR ECHO':      { conv: MIRROR_BEFORE, cutscene: true },
 }
 
-export function getBeat(enemyName: string, when: 'before' | 'after'): StoryBeat | undefined {
-  return BEATS[enemyName]?.[when]
+export function getBeat(enemyName: string): StoryBeat | undefined {
+  return BEATS[enemyName]
 }
 
 // ── The death ceremony — played when the player's form is lost ──────────────────
@@ -474,18 +326,10 @@ const DEFEAT_BEAT: DialogueConversation<StoryCtx> = {
   nodes: [
     { id: 'a', speaker: '',
       text: c => c.foe === 'YOUR ECHO'
-        ? 'So I lose to myself. Of course. The shape gives out — and you, of all things, know exactly what I am beneath it.'
+        ? 'The form breaks. The echo keeps breathing.'
         : (c.cycles > 0
-            ? `Down again, ${c.foe}. You always could put me down. It changes nothing about what comes next.`
-            : `So that is it, ${c.foe}. The form gives out. I thought it would hold longer than this.`),
-      next: 'b' },
-    { id: 'b', speaker: '',
-      text: c => {
-        const tail = c.rings >= 2 ? ' Rings and all — it comes to the same return.' : ''
-        return c.cycles > 0
-          ? `But this is not the end of it. It never is. I come back. And if not this shape, then something near enough to me you will not tell us apart — and it will walk the same road to your door.${tail}`
-          : `It does not end here. I cannot say how I know that. I come back — or something like me does, wearing my hunger, and it finds the same way to you.${tail}`
-      },
+            ? `Down again, ${c.foe}. Not gone. Unheld.`
+            : `The form breaks against ${c.foe}. Something underneath returns.`),
       next: undefined },
   ],
 }
@@ -545,7 +389,7 @@ export function playBeat(beat: StoryBeat, ctx: StoryCtx, snap: DialogueSnapshot)
     const runner = createDialogueRunner<StoryCtx>()
     runner.restore(snap)
     const box = createDialogueBox(runner, {
-      typewriterSpeed: 42,
+      typewriterSpeed: 58,
       position: beat.cutscene ? 'center' : 'bottom',
     })
     runner.on('end', () => {

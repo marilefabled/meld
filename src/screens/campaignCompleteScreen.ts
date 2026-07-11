@@ -3,18 +3,15 @@ export function showCampaignComplete(): Promise<void> {
     const overlay = document.createElement('div')
     overlay.className = 'campaign-complete-overlay'
     overlay.innerHTML = `
-      <div class="cc-eyebrow">ALL MARKS RETURNED</div>
-      <div class="cc-title">RETURNED<br>TO THE MELD</div>
+      <div class="cc-eyebrow">ALL MARKS HELD</div>
+      <div class="cc-title">MELD TO<br>ALL HELD</div>
       <div class="cc-body">
-        Three splinters. Three returns.<br>
-        Your bounty is paid.
+        For one breath, you remember the name.
       </div>
       <div class="cc-pause">
-        You remember — dimly — what it felt like before you had a form.<br>
-        Before you had a name.<br>
-        The Meld opens.
+        Then the Meld opens again.
       </div>
-      <button class="cc-dissolve">DISSOLVE INTO THE MELD</button>
+      <button class="cc-dissolve">ENTER AGAIN</button>
     `
     document.body.appendChild(overlay)
     requestAnimationFrame(() => overlay.classList.add('visible'))

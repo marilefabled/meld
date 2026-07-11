@@ -6,12 +6,12 @@ describe('getVariant', () => {
     const def = CARD_DATA.strike
     const v = getVariant(def, 1, DEFAULT_BUILD, 'strike')
     expect(v.value).toBe(6)
-    expect(v.name).toBe('Jab')
+    expect(v.name).toBe('Mark')
   })
   it('returns alt variant when build selects index 1', () => {
     const def = CARD_DATA.strike
     const v = getVariant(def, 1, { strike: [1, 0, 0] }, 'strike')
-    expect(v.name).toBe('Puncture')
+    expect(v.name).toBe('Open')
     expect(v.value).toBe(4)
     expect(v.status?.kind).toBe('vulnerable')
   })
@@ -32,7 +32,7 @@ describe('getVariant', () => {
   })
   it('T2 fortress variant has no heal but more absorb', () => {
     const v = getVariant(CARD_DATA.block, 2, { block: [0, 1, 0] }, 'block')
-    expect(v.name).toBe('Fortress')
+    expect(v.name).toBe('Keep')
     expect(v.value).toBe(7)
     expect(v.heal).toBeUndefined()
   })

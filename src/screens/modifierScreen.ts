@@ -7,8 +7,8 @@ export function showModifierScreen(): Promise<Modifier | null> {
     const overlay = document.createElement('div')
     overlay.className = 'modifier-overlay'
     overlay.innerHTML = `
-      <div class="mod-title">WHAT YOU CARRY BACK</div>
-      <div class="mod-sub">One thing you remember how to do</div>
+      <div class="mod-title">CARRY ONE HABIT</div>
+      <div class="mod-sub">The dark kept three</div>
       <div class="mod-options">
         ${offered.map((m, i) => `
           <button class="mod-option" data-i="${i}">
@@ -19,7 +19,7 @@ export function showModifierScreen(): Promise<Modifier | null> {
           </button>
         `).join('')}
       </div>
-      <button class="mod-skip">Carry nothing — go bare →</button>
+      <button class="mod-skip">GO BARE →</button>
     `
     document.body.appendChild(overlay)
     requestAnimationFrame(() => overlay.classList.add('visible'))

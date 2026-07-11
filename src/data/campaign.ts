@@ -53,7 +53,7 @@ export function newCampaign(baseClass: PlayerClass): CampaignState {
   return state
 }
 
-// Absorbing a class grants adapted "borrowed" cards — cheaper, weaker off-class tools
+// Absorbing a form grants adapted carried cards — cheaper, weaker off-form tools
 // (defined in cards.ts) that answer your anti-matchup. Breadth, not power.
 export const ABSORB_KIT: Record<PlayerClass, string> = {
   warrior: 'borrowed_strike',    // cheap direct damage — cuts through status-immune foes
@@ -64,21 +64,21 @@ export const ABSORB_KIT: Record<PlayerClass, string> = {
 const ABSORB_COPIES = 3   // copies added per absorb (enough to draw & meld reliably)
 
 const ABSORB_DESC: Record<PlayerClass, string> = {
-  warrior: 'Cheap direct strikes — cut through status-immune foes',
-  mage:    'Cheap burst — overwhelm foes that heal back',
-  rogue:   'Cheap poison — damage that slips past armor',
+  warrior: 'Carry 3 Oathcuts. Direct damage beats immunity.',
+  mage:    'Carry 3 Cinders. Burst outruns healing.',
+  rogue:   'Carry 3 Needles. Poison slips through armor.',
 }
 
 const ABSORB_FLAVOR: Record<PlayerClass, string> = {
-  warrior: 'Strike is direct. Efficient. Sometimes the simplest tool is the right one.',
-  mage:    'Fire has a certain persuasiveness. Borrow it.',
-  rogue:   'Patience is a weapon too. Now you carry both.',
+  warrior: 'Take the cut. Leave the oath.',
+  mage:    'Keep one coal in the mouth.',
+  rogue:   'Leave the needle in.',
 }
 
 const CLASS_LABEL: Record<PlayerClass, string> = {
-  warrior: 'Warrior',
-  mage:    'Mage',
-  rogue:   'Rogue',
+  warrior: CLASS_CONFIGS.warrior.displayName,
+  mage:    CLASS_CONFIGS.mage.displayName,
+  rogue:   CLASS_CONFIGS.rogue.displayName,
 }
 
 export type EvolutionKind =
@@ -94,9 +94,9 @@ export interface EvolutionOption {
 }
 
 const STRENGTHEN_FLAVOR: Record<PlayerClass, string> = {
-  warrior: 'The iron was already there. Now it\'s denser.',
-  mage:    'The flame didn\'t grow wider. It grew hotter.',
-  rogue:   'Precision sharpened past what most could see.',
+  warrior: 'The vow cuts back.',
+  mage:    'The coal learns hunger.',
+  rogue:   'The needle finds the gap.',
 }
 
 export function getEvolutionOptions(state: CampaignState): EvolutionOption[] {
@@ -113,11 +113,11 @@ export function getEvolutionOptions(state: CampaignState): EvolutionOption[] {
     kind:   { type: 'strengthen' },
     label:  'DEEPEN',
     icon,
-    desc:   'Your identity intensifies. All cards hit harder.',
+    desc:   `All ${CLASS_CONFIGS[baseClass].displayName} card values gain +35% base power.`,
     flavor: STRENGTHEN_FLAVOR[baseClass],
   })
 
-  // ABSORB: gain adapted "borrowed" cards from an unabsorbed class
+  // ABSORB: gain adapted carried cards from an unabsorbed class
   for (const cls of otherClasses) {
     options.push({
       kind:   { type: 'absorb', cls },

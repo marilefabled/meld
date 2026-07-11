@@ -233,6 +233,8 @@ export function createMenuSystem(opts: MenuSystemOpts = {}) {
   const layer = document.createElement('div')
   layer.className = 'ms-layer'
   layer.hidden = true
+  layer.setAttribute('aria-hidden', 'true')
+  layer.inert = true
   container.appendChild(layer)
 
   const stack: StackEntry[] = []
@@ -514,6 +516,8 @@ export function createMenuSystem(opts: MenuSystemOpts = {}) {
 
     if (stack.length === 1) {
       layer.hidden = false
+      layer.inert = false
+      layer.setAttribute('aria-hidden', 'false')
       document.addEventListener('keydown', _onKey)
       onOpen?.()
     }
@@ -548,6 +552,8 @@ export function createMenuSystem(opts: MenuSystemOpts = {}) {
 
   function _hide() {
     layer.hidden = true
+    layer.inert = true
+    layer.setAttribute('aria-hidden', 'true')
     document.removeEventListener('keydown', _onKey)
     onClose?.()
   }

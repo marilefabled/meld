@@ -59,7 +59,7 @@ function balancedFn(ctx: SimCtx): ReturnType<Strategy> {
     .filter(c => {
       const def = CARD_DATA[c.cardId]
       if (!def || def.type !== 'defend' || (def.cost ?? 1) > ctx.energy) return false
-      // Skip Ward against immune enemies — the Weak effect is blocked (hold for meld instead)
+      // Skip Hush against immune enemies — the Weak effect is blocked (hold for meld instead)
       if (immuneToWeak && cardHasWeakStatus(c.cardId, c.tier)) return false
       return true
     })

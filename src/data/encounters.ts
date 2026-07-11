@@ -24,9 +24,9 @@ export function moveShape(m: EnemyMove): IconShape {
 
 // Passive identity mechanics — each one taxes a player class and is answered by
 // another, forming a soft triangle (see README → Damage & resistance):
-//   armored → bounces burst (Mage),  answered by poison (ignores armor)
-//   regen   → outpaces attrition (Warrior/Rogue), answered by burst (Mage)
-//   immune  → negates status (Rogue), answered by direct damage (Warrior/Mage)
+//   armored → bounces burst (Cinder-Seer), answered by poison (ignores armor)
+//   regen   → outpaces attrition (Vow-Bound/Needle-Saint), answered by burst (Cinder-Seer)
+//   immune  → negates status (Needle-Saint), answered by direct damage (Vow-Bound/Cinder-Seer)
 export type EnemyTrait =
   | { kind: 'armored'; absorb: number }          // +absorb at the start of each of its turns
   | { kind: 'regen';   hp: number }              // heals at the start of each of its turns
@@ -38,12 +38,12 @@ export interface EnemyDef {
 }
 
 // ── Enemies as a system: archetype × tier × variant ─────────────────────────
-// The mirror of the card system. A card is type → tier → variant (Strike → T1/T2/T3 →
-// Jab/Puncture). An enemy is archetype → tier → variant:
+// The mirror of the card system. A card is type → tier → variant (Oathcut → T1/T2/T3 →
+// Mark/Open). An enemy is archetype → tier → variant:
 //
 //   archetype  ≈ card type     — the 3 walls of the triangle (immune / armored / regen)
 //   tier       ≈ card tier      — escalating threat, one per run (T1=run1 … T3=run3)
-//   variant    ≈ card variant   — same role, different feel (Whelp vs Wisp)
+//   variant    ≈ card variant   — same role, different feel (First Scar vs Wisp)
 //
 // The 9 gauntlet opponents ARE the 3×3 grid; makeMirror is the 10th. A run is the
 // tier-r form of every archetype, so each run is one immune, one armored, one regen —
@@ -61,12 +61,12 @@ export interface EnemyArchetype {
 
 // ── Run-1 alternate variants — same wall-role as the default, different feel ──
 const WISP: EnemyDef = {
-  // Immune alt — turtles behind a shield instead of rushing. Still guts Rogue.
+  // Immune alt — turtles behind a shield instead of rushing. Still guts Needle-Saint.
   name: 'Wisp', bodyColor: 0x6d28d9, accentColor: 0xc4b5fd, hp: 30,
   traits: [{ kind: 'immune', statuses: ['poison', 'vulnerable', 'weak'] }],
   moves: [
     { name: 'Flicker', type: 'attack', value: 5, color: 0xef4444, label: '🌀 Flicker · 5 dmg', weight: 1.2 },
-    { name: 'Veil',    type: 'defend', value: 4, color: 0x6366f1, label: '🛡 Veil · +4 absorb', weight: 0.9 },
+    { name: 'Muffle',  type: 'defend', value: 4, color: 0x6366f1, label: '🛡 Muffle · +4 absorb', weight: 0.9 },
   ],
 }
 const HUSK: EnemyDef = {
@@ -91,30 +91,30 @@ const BLOOM: EnemyDef = {
 }
 
 export const ARCHETYPES: EnemyArchetype[] = [
-  // ── PURIFIER · immune — taxes Rogue (status whiffs); answer with direct damage ──
+  // ── PURIFIER · immune — taxes Needle-Saint (status whiffs); answer with direct damage ──
   {
     key: 'immune', label: 'Purifier',
     tiers: [
       [
         {
           // T1 default — taught cheaply so the player meets immunity before it can kill.
-          name: 'Whelp', bodyColor: 0xb45309, accentColor: 0xd97706, hp: 35,
+          name: 'First Scar', bodyColor: 0xb45309, accentColor: 0xd97706, hp: 35,
           traits: [{ kind: 'immune', statuses: ['poison', 'vulnerable', 'weak'] }],
           moves: [
-            { name: 'Fray', type: 'attack', value: 4, color: 0xef4444, label: '🌀 Fray · 4 dmg',  weight: 1 },
-            { name: 'Lash', type: 'attack', value: 6, color: 0xdc2626, label: '⚡ Lash · 6 dmg',  weight: 1.1 },
+            { name: 'Nip',  type: 'attack', value: 4, color: 0xef4444, label: '🌀 Nip · 4 dmg',  weight: 1 },
+            { name: 'Snap', type: 'attack', value: 6, color: 0xdc2626, label: '⚡ Snap · 6 dmg', weight: 1.1 },
           ],
         },
         WISP,
       ],
       [{
-        // T2 — immunity that also defends. Rogue must lean hard on direct damage.
+        // T2 — immunity that also defends. Needle-Saint must lean hard on direct damage.
         name: 'Warden', bodyColor: 0x065f46, accentColor: 0x10b981, hp: 60,
         traits: [{ kind: 'immune', statuses: ['poison', 'vulnerable', 'weak'] }],
         moves: [
           { name: 'Cull',   type: 'attack', value: 9,  color: 0xef4444, label: '🌀 Cull · 9 dmg',         weight: 1.2 },
           { name: 'Purge',  type: 'attack', value: 13, color: 0xdc2626, label: '⚡ Purge · 13 dmg',        weight: 1 },
-          { name: 'Ward',   type: 'defend', value: 5,  color: 0x6366f1, label: '🛡 Ward · +5 absorb',      weight: 0.9 },
+          { name: 'Lock',   type: 'defend', value: 5,  color: 0x6366f1, label: '🛡 Lock · +5 absorb',      weight: 0.9 },
         ],
       }, {
         // T2 alt — immune glass cannon: no shield, all pressure. Race it down.
@@ -130,7 +130,7 @@ export const ARCHETYPES: EnemyArchetype[] = [
         name: 'Sentinel', bodyColor: 0x1e3a8a, accentColor: 0x60a5fa, hp: 170,
         traits: [{ kind: 'immune', statuses: ['poison', 'vulnerable', 'weak'] }, { kind: 'armored', absorb: 4 }],
         moves: [
-          { name: 'Cleave',  type: 'attack', value: 15, color: 0xef4444, label: '⚡ Cleave · 15 dmg',      weight: 1.1 },
+          { name: 'Gatecut', type: 'attack', value: 15, color: 0xef4444, label: '⚡ Gatecut · 15 dmg',     weight: 1.1 },
           { name: 'Smite',   type: 'attack', value: 21, color: 0xdc2626, label: '💀 Smite · 21 dmg',       weight: 1 },
           { name: 'Bulwark', type: 'defend', value: 8,  color: 0x6366f1, label: '🛡 Bulwark · +8 absorb',  weight: 1 },
         ],
@@ -147,19 +147,19 @@ export const ARCHETYPES: EnemyArchetype[] = [
     ],
   },
 
-  // ── BULWARK · armored — taxes Mage burst; answer with poison (ignores armor) ──
+  // ── BULWARK · armored — taxes Cinder-Seer burst; answer with poison (ignores armor) ──
   {
     key: 'armored', label: 'Bulwark',
     tiers: [
       [
         {
           // T1 default — hardens every turn.
-          name: 'Brute', bodyColor: 0x7f1d1d, accentColor: 0xb91c1c, hp: 70,
+          name: 'Iron Knuckle', bodyColor: 0x7f1d1d, accentColor: 0xb91c1c, hp: 70,
           traits: [{ kind: 'armored', absorb: 3 }],
           moves: [
-            { name: 'Crash',    type: 'attack', value: 8,  color: 0xef4444, label: '💥 Crash · 8 dmg',       weight: 1 },
-            { name: 'Rend',     type: 'attack', value: 11, color: 0xdc2626, label: '🌀 Rend · 11 dmg',       weight: 1.3 },
-            { name: 'Coalesce', type: 'defend', value: 3,  color: 0x6366f1, label: '🛡 Coalesce · +3 absorb', weight: 1 },
+            { name: 'Hammer',    type: 'attack', value: 8,  color: 0xef4444, label: '💥 Hammer · 8 dmg',       weight: 1 },
+            { name: 'Split',     type: 'attack', value: 11, color: 0xdc2626, label: '🌀 Split · 11 dmg',       weight: 1.3 },
+            { name: 'Plate Up',  type: 'defend', value: 3,  color: 0x6366f1, label: '🛡 Plate Up · +3 absorb', weight: 1 },
           ],
         },
         HUSK,
@@ -205,21 +205,21 @@ export const ARCHETYPES: EnemyArchetype[] = [
     ],
   },
 
-  // ── RENEWER · regen — taxes attrition (Warrior/Rogue); answer with burst (Mage) ──
+  // ── RENEWER · regen — taxes attrition (Vow-Bound/Needle-Saint); answer with burst (Cinder-Seer) ──
   {
     key: 'regen', label: 'Renewer',
     tiers: [
       [
         {
           // T1 default — regenerates every turn.
-          name: 'CORE', bodyColor: 0x1e1b4b, accentColor: 0x4338ca, hp: 120,
+          name: 'Counting Heart', bodyColor: 0x1e1b4b, accentColor: 0x4338ca, hp: 120,
           traits: [{ kind: 'regen', hp: 6 }],
           moves: [
-            { name: 'Compress',   type: 'attack', value: 10, color: 0xef4444, label: '⚡ Compress · 10 dmg',  weight: 1 },
-            { name: 'Unravel',    type: 'attack', value: 15, color: 0xdc2626, label: '💀 Unravel · 15 dmg + poison',
+            { name: 'Count Down', type: 'attack', value: 10, color: 0xef4444, label: '⚡ Count Down · 10 dmg', weight: 1 },
+            { name: 'Unmake',     type: 'attack', value: 15, color: 0xdc2626, label: '💀 Unmake · 15 dmg + poison',
               status: { kind: 'poison', stacks: 2, target: 'player' }, weight: 1.3 },
-            { name: 'Crystallize',type: 'defend', value: 5,  color: 0x6366f1, label: '🛡 Crystallize · +5 absorb', weight: 0.8 },
-            { name: 'Draw',       type: 'heal',   value: 8,  color: 0x22c55e, label: '💚 Draw · +8 HP',        weight: 1 },
+            { name: 'Glass Over', type: 'defend', value: 5,  color: 0x6366f1, label: '🛡 Glass Over · +5 absorb', weight: 0.8 },
+            { name: 'Recount',    type: 'heal',   value: 8,  color: 0x22c55e, label: '💚 Recount · +8 HP',        weight: 1 },
           ],
         },
         BLOOM,
@@ -229,7 +229,7 @@ export const ARCHETYPES: EnemyArchetype[] = [
         name: 'Wellspring', bodyColor: 0x134e4a, accentColor: 0x2dd4bf, hp: 160,
         traits: [{ kind: 'regen', hp: 9 }],
         moves: [
-          { name: 'Surge',    type: 'attack', value: 13, color: 0xef4444, label: '⚡ Surge · 13 dmg',       weight: 1 },
+          { name: 'Upwell',   type: 'attack', value: 13, color: 0xef4444, label: '⚡ Upwell · 13 dmg',      weight: 1 },
           { name: 'Corrode',  type: 'attack', value: 12, color: 0xdc2626, label: '💀 Corrode · 12 dmg + poison',
             status: { kind: 'poison', stacks: 3, target: 'player' }, weight: 1.2 },
           { name: 'Renew',    type: 'heal',   value: 12, color: 0x22c55e, label: '💚 Renew · +12 HP',       weight: 1.1 },
@@ -298,9 +298,9 @@ export function makeMirror(cls: PlayerClass, powerLevel: number): EnemyDef {
     return {
       name: 'YOUR ECHO', ...MIRROR_COLOR, hp: s(150),
       moves: [
-        { name: 'Echo Flare',   type: 'attack', value: s(16), color: 0xf97316, label: `🔥 Echo Flare · ${s(16)} dmg`,  shape: 'fireball', weight: 1.2 },
-        { name: 'Echo Inferno', type: 'attack', value: s(24), color: 0xea580c, label: `💥 Echo Inferno · ${s(24)} dmg`, shape: 'fireball', weight: 1 },
-        { name: 'Echo Ignite',  type: 'attack', value: s(12), color: 0xdc2626, label: `💀 Echo Ignite · ${s(12)} dmg + ignite`,
+        { name: 'Echo Cinder',  type: 'attack', value: s(16), color: 0xf97316, label: `🔥 Echo Cinder · ${s(16)} dmg`, shape: 'fireball', weight: 1.2 },
+        { name: 'Echo Kiln',    type: 'attack', value: s(24), color: 0xea580c, label: `💥 Echo Kiln · ${s(24)} dmg`,   shape: 'fireball', weight: 1 },
+        { name: 'Echo Ashwake', type: 'attack', value: s(12), color: 0xdc2626, label: `💀 Echo Ashwake · ${s(12)} dmg + ignite`,
           status: { kind: 'poison', stacks: 4, target: 'player' }, shape: 'fireball', weight: 1 },
       ],
     }
@@ -310,10 +310,10 @@ export function makeMirror(cls: PlayerClass, powerLevel: number): EnemyDef {
       name: 'YOUR ECHO', ...MIRROR_COLOR, hp: s(160),
       traits: [{ kind: 'regen', hp: s(5) }],
       moves: [
-        { name: 'Echo Slash',  type: 'attack', value: s(11), color: 0xa855f7, label: `🗡️ Echo Slash · ${s(11)} dmg`,  shape: 'slash', weight: 1.1 },
-        { name: 'Echo Bleed',  type: 'attack', value: s(13), color: 0xdc2626, label: `💔 Echo Bleed · ${s(13)} dmg + vuln`,
+        { name: 'Echo Needle', type: 'attack', value: s(11), color: 0xa855f7, label: `🗡️ Echo Needle · ${s(11)} dmg`, shape: 'slash', weight: 1.1 },
+        { name: 'Echo Redline',type: 'attack', value: s(13), color: 0xdc2626, label: `💔 Echo Redline · ${s(13)} dmg + vuln`,
           status: { kind: 'vulnerable', stacks: 2, target: 'player' }, shape: 'slash', weight: 1.2 },
-        { name: 'Echo Envenom',type: 'attack', value: s(8),  color: 0x16a34a, label: `💀 Echo Envenom · ${s(8)} dmg + poison`,
+        { name: 'Echo Venom',  type: 'attack', value: s(8),  color: 0x16a34a, label: `💀 Echo Venom · ${s(8)} dmg + poison`,
           status: { kind: 'poison', stacks: 4, target: 'player' }, shape: 'slash', weight: 1 },
       ],
     }
@@ -323,9 +323,9 @@ export function makeMirror(cls: PlayerClass, powerLevel: number): EnemyDef {
     name: 'YOUR ECHO', ...MIRROR_COLOR, hp: s(180),
     traits: [{ kind: 'armored', absorb: s(3) }],
     moves: [
-      { name: 'Echo Strike', type: 'attack', value: s(13), color: 0xef4444, label: `⚔️ Echo Strike · ${s(13)} dmg`,  shape: 'strike', weight: 1.2 },
-      { name: 'Echo Cleave', type: 'attack', value: s(20), color: 0xdc2626, label: `💥 Echo Cleave · ${s(20)} dmg`,  shape: 'strike', weight: 1 },
-      { name: 'Echo Guard',  type: 'defend', value: s(6),  color: 0x6366f1, label: `🛡 Echo Guard · +${s(6)} absorb`, shape: 'absorb', weight: 0.9 },
+      { name: 'Echo Oathcut', type: 'attack', value: s(13), color: 0xef4444, label: `⚔️ Echo Oathcut · ${s(13)} dmg`, shape: 'strike', weight: 1.2 },
+      { name: 'Echo Oathfall',type: 'attack', value: s(20), color: 0xdc2626, label: `💥 Echo Oathfall · ${s(20)} dmg`, shape: 'strike', weight: 1 },
+      { name: 'Echo Shell',   type: 'defend', value: s(6),  color: 0x6366f1, label: `🛡 Echo Shell · +${s(6)} absorb`, shape: 'absorb', weight: 0.9 },
     ],
   }
 }

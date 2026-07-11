@@ -45,6 +45,10 @@ export interface DialogueBox {
 
 const STYLE_ID = 'engine-dialogue-box-styles'
 
+export function dialoguePromptForNode(node: Pick<ActiveNode<any>, 'isAuto'>): string {
+  return node.isAuto ? 'CLICK or SPACE to continue' : 'CHOOSE with click or 1-9'
+}
+
 function injectStyles() {
   if (document.getElementById(STYLE_ID)) return
   const s = document.createElement('style')
@@ -141,7 +145,7 @@ export function createDialogueBox(
       </div>
       <div class="db-text"></div>
       <div class="db-choices"></div>
-      <div class="db-prompt">CLICK or SPACE to continue</div>
+      <div class="db-prompt"></div>
     </div>
   `
   container.appendChild(overlay)
@@ -188,14 +192,19 @@ export function createDialogueBox(
     stopTimer()
     textEl.textContent = _currentNode.text
     _typing = false
-    if (_currentNode.isAuto) promptEl.style.display = ''
+    if (_currentNode.isAuto) showPrompt(dialoguePromptForNode(_currentNode))
     else renderChoices(_currentNode)
+  }
+
+  function showPrompt(text: string) {
+    promptEl.textContent = text
+    promptEl.style.display = ''
   }
 
   // ── Choices ────────────────────────────────────────────────────────────
   function renderChoices(node: ActiveNode<any>) {
     choicesEl.innerHTML = ''
-    promptEl.style.display = 'none'
+    showPrompt(dialoguePromptForNode(node))
     node.choices.forEach((ch, ci) => {
       const btn = document.createElement('button')
       btn.className = 'db-choice'
@@ -232,7 +241,7 @@ export function createDialogueBox(
 
     typewrite(node.text, () => {
       if (node.isAuto) {
-        promptEl.style.display = ''
+        showPrompt(dialoguePromptForNode(node))
       } else {
         renderChoices(node)
       }
@@ -274,6 +283,7 @@ export function createDialogueBox(
     show() {
       if (_visible) return
       _visible = true
+      document.body.classList.add('dialogue-active')
       overlay.classList.add('db-visible')
       fireBox('open')
     },
@@ -283,6 +293,7 @@ export function createDialogueBox(
       stopTimer()
       _visible     = false
       _currentNode = null
+      document.body.classList.remove('dialogue-active')
       overlay.classList.remove('db-visible')
       fireBox('close')
     },
@@ -300,6 +311,7 @@ export function createDialogueBox(
     dispose() {
       offNode(); offEnd()
       document.removeEventListener('keydown', onKey)
+      document.body.classList.remove('dialogue-active')
       overlay.remove()
     },
   }

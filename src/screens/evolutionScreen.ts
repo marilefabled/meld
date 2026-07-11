@@ -1,16 +1,25 @@
 import { getEvolutionOptions, type CampaignState, type EvolutionKind, TOTAL_RUNS } from '../data/campaign.js'
+import { CLASS_CONFIGS } from '../data/classes.js'
 
 export function showEvolutionScreen(state: CampaignState): Promise<EvolutionKind> {
   return new Promise(resolve => {
     const options = getEvolutionOptions(state)
     const runsLeft = TOTAL_RUNS - state.runNumber
+    const formName = CLASS_CONFIGS[state.baseClass].displayName.toUpperCase()
+    const carriedForms = state.classesIn.filter(cls => cls !== state.baseClass).map(cls => CLASS_CONFIGS[cls].displayName)
+    const heldForms = carriedForms.length ? carriedForms.join(' / ') : 'PURE FORM'
 
     const overlay = document.createElement('div')
     overlay.className = 'evolution-overlay'
     overlay.innerHTML = `
       <div class="evo-eyebrow">RUN ${state.runNumber} COMPLETE · ${runsLeft} RUN${runsLeft !== 1 ? 'S' : ''} REMAIN</div>
-      <div class="evo-title">YOUR FORM EVOLVES</div>
-      <div class="evo-body">The hunt continues. Choose how you approach what's left.</div>
+      <div class="evo-title">CHOOSE WHAT CHANGES</div>
+      <div class="evo-body">Three marks held. Deepen this form or carry another.</div>
+      <div class="evo-state">
+        <span>BASE ${formName}</span>
+        <span>${heldForms}</span>
+        <span>POWER ${state.powerLevel.toFixed(2)}</span>
+      </div>
       <div class="evo-options">
         ${options.map((opt, i) => `
           <button class="evo-option" data-i="${i}">

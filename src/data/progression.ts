@@ -81,14 +81,14 @@ export const progression = {
   recordRunEnd(won: boolean, encsCleared: number) {
     _s.runsCompleted++
     _s.encountersCleared += encsCleared
-    // Milestone: first ever CORE clear unlocks all T3 alts
+    // Milestone: first ever Counting Heart clear unlocks all T3 alts
     if (won && _s.runsCompleted === 1) {
       for (const def of Object.values(CARD_DATA)) {
         const alt = def.variants[2][1]
         if (alt) this.unlock(alt.id)
       }
     }
-    // Milestone: first ever Brute clear unlocks all T2 alts
+    // Milestone: first ever Iron Knuckle clear unlocks all T2 alts
     if (_s.encountersCleared >= 2 && !_s.unlockedVariants.includes('first_brute')) {
       _s.unlockedVariants.push('first_brute')  // sentinel
       for (const def of Object.values(CARD_DATA)) {

@@ -83,15 +83,15 @@ function showLoadout(baseClass: PlayerClass, customCardIds?: string[], initialBu
 
       overlay.innerHTML = `
         <div class="lo-head">
-          <div class="lo-title">FORGE YOUR DECK</div>
-          <div class="lo-subtitle">${baseClass.toUpperCase()} · ⬡ ${progression.state.fragments} frags · ${cardIds.length} cards</div>
+          <div class="lo-title">SET YOUR HAND</div>
+          <div class="lo-subtitle">${CLASS_CONFIGS[baseClass].displayName.toUpperCase()} · ⬡ ${progression.state.fragments} frags · ${cardIds.length} cards</div>
         </div>
         <div class="lo-grid">${tiles}</div>
         <div class="lo-detail" style="--cc:${hex(selDef.color)}">
           <div class="lo-detail-head"><span class="lo-detail-icon">${selDef.icon}</span>${selDef.name}</div>
           <div class="lo-tcards">${tcards}</div>
         </div>
-        <button class="lo-fight">FIGHT →</button>
+        <button class="lo-fight">FACE THE MARK →</button>
       `
 
       overlay.querySelectorAll<HTMLButtonElement>('.lo-tile').forEach(t => {
@@ -169,18 +169,17 @@ function showEnemySelect(): Promise<number> {
   })
 }
 
-// Builds the per-encounter "before" story hook for a campaign: seed the beat from
-// saved story state, play it, write the result back (variable saving). Persists after
-// every beat so choices survive reloads between runs.
+// Builds the per-encounter story hook: seed from saved state, play one compact beat,
+// then persist its choices so they can echo later in the run.
 function storyCtx(campaign: CampaignState, foe: string): StoryCtx {
   if (!campaign.story) campaign.story = emptyStory()
   const rings = Math.min(campaign.runNumber, 2) + progression.state.earnedRings.length
   return { vars: { ...campaign.story.vars }, runNumber: campaign.runNumber, baseClass: campaign.baseClass, cycles: progression.state.cycles, rings, foe }
 }
 
-function makeStoryHook(campaign: CampaignState, when: 'before' | 'after') {
+function makeStoryHook(campaign: CampaignState) {
   return async (enemyName: string) => {
-    const beat = getBeat(enemyName, when)
+    const beat = getBeat(enemyName)
     if (!beat) return
     const ctx = storyCtx(campaign, enemyName)
     const out = await playBeat(beat, ctx, { flags: [...campaign.story.flags], picked: [...campaign.story.picked] })
@@ -254,6 +253,14 @@ export async function showTitle() {
   const battleModule = import('./battle.js')
   const trans        = createSceneTransition({ duration: 0.6 })
 
+  const captureMode = new URLSearchParams(location.search).get('capture') === '1'
+  if (captureMode) {
+    clearCheckpoint()
+    clearCampaign()
+    progression.reset()
+    history.replaceState(null, document.title, location.pathname + location.hash)
+  }
+
   // ── Campaign run helper ─────────────────────────────────────────────────────
   async function startCampaignRun(campaign: CampaignState, resume?: { encounterIdx: number; playerHP: number; runFragments: number }) {
     const cardIds = [...new Set(campaign.deck.map(c => c.cardId))]
@@ -275,10 +282,12 @@ export async function showTitle() {
         startFrom:         resume?.encounterIdx ?? 0,
         startPlayerHP:     resume?.playerHP,
         startRunFragments: resume?.runFragments ?? 0,
-        onBeforeEncounter: makeStoryHook(campaign, 'before'),
-        onAfterEncounter:  makeStoryHook(campaign, 'after'),
+        onBeforeEncounter: makeStoryHook(campaign),
         onDefeatBeat:      makeDefeatHook(campaign),
         isFirstRun:        campaign.runNumber === 0 && resume == null,
+        tutorial:          campaign.runNumber === 0 && resume == null
+          ? { enabled: true, signatureCard: CLASS_CONFIGS[campaign.baseClass].signatureCard, openingHand: CLASS_CONFIGS[campaign.baseClass].tutorialHand }
+          : null,
         powerLevel:        campaign.powerLevel ?? 1,
         classesIn:         campaign.classesIn,
         runNumber:         campaign.runNumber,
@@ -314,8 +323,7 @@ export async function showTitle() {
         modifier:    null,
         encounters:  [mirror],
         isFinale:    true,
-        onBeforeEncounter: makeStoryHook(campaign, 'before'),
-        onAfterEncounter:  makeStoryHook(campaign, 'after'),
+        onBeforeEncounter: makeStoryHook(campaign),
         onDefeatBeat:      makeDefeatHook(campaign),
         powerLevel:  campaign.powerLevel ?? 1,
         classesIn:   campaign.classesIn,
@@ -423,11 +431,11 @@ export async function showTitle() {
     items: [
       { type: 'header', label: 'RETURN TO THE MELD' },
       { type: 'separator' },
-      ...(saved ? [{ type: 'button' as const, label: 'CONTINUE JOURNEY', action: () => {
+      ...(saved ? [{ type: 'button' as const, label: 'RETURN TO THE RUN', action: () => {
         titleScene?.dispose(); menus.close()
         void startCampaignRun(saved)
       } }] : []),
-      { type: 'button', label: saved ? 'NEW JOURNEY' : 'BEGIN JOURNEY', action: () => beginJourney() },
+      { type: 'button', label: saved ? 'START UNHELD' : 'ENTER THE ARENA', action: () => beginJourney() },
       { type: 'button', label: 'COLLECTION',     action: async () => { await showShop() } },
       { type: 'button', label: 'HOW TO PLAY',    action: () => menus.push(howToPlay) },
       { type: 'button', label: 'SETTINGS',       action: () => menus.push(settingsMenu) },
@@ -446,12 +454,12 @@ export async function showTitle() {
     meldInTitle()
   }
 
-  function runHeraldIntro(): Promise<PlayerClass> {
+  function runHeraldIntro(): Promise<void> {
     return new Promise(resolve => {
       const runner = createDialogueRunner<IntroCtx>()
-      const box    = createDialogueBox(runner, { typewriterSpeed: 45 })
+      const box    = createDialogueBox(runner, { typewriterSpeed: 58 })
       const ctx: IntroCtx = { class: 'warrior' }
-      runner.on('end', () => { box.dispose(); resolve(ctx.class) })
+      runner.on('end', () => { box.dispose(); resolve() })
       runner.start(INTRO, ctx)
     })
   }
@@ -459,8 +467,11 @@ export async function showTitle() {
   async function beginJourney() {
     titleScene?.dispose()
     menus.close()
+    clearCheckpoint()
+    clearCampaign()
     const isReturning = progression.state.runsCompleted > 0
-    const cls = isReturning ? await showClassSelect() : await runHeraldIntro()
+    if (!isReturning) await runHeraldIntro()
+    const cls = await showClassSelect({ mode: isReturning ? 'returning' : 'first-run' })
     const campaign = newCampaign(cls)
     await startCampaignRun(campaign)
   }
