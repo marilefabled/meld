@@ -4,24 +4,14 @@ import { buildIcon } from '../engine/icons.js'
 
 export interface CampaignCard { cardId: string; tier: number }
 
-// Persistent narrative state — dialogue flags, once-choices, and named variables.
-// Saved with the campaign so story beats branch on choices made many fights ago.
-export interface StoryState {
-  flags:  string[]                 // dialogue flags set across all beats
-  picked: string[]                 // once-choices already taken (conv:node:idx)
-  vars:   Record<string, number>   // named numeric variables (resolve, fury, …)
-}
-
-export const emptyStory = (): StoryState => ({ flags: [], picked: [], vars: {} })
-
 export interface CampaignState {
   runNumber:  number          // completed runs (0 = haven't finished run 1 yet)
   baseClass:  PlayerClass
   deck:       CampaignCard[]  // evolves between runs
   build:      CardBuild       // persisted variant choices
+  techniqueCard: string       // two-copy package selected at loadout
   classesIn:  PlayerClass[]   // which essences you've absorbed
   powerLevel: number          // stat multiplier; 1.0 base, +0.35 per strengthen
-  story:      StoryState      // persistent dialogue flags / variables
 }
 
 const KEY = 'meld_campaign_v1'
@@ -32,7 +22,10 @@ export function loadCampaign(): CampaignState | null {
     if (!raw) return null
     const s = JSON.parse(raw) as CampaignState
     if (s.powerLevel == null) s.powerLevel = 1
-    if (s.story == null) s.story = emptyStory()
+    if (!s.techniqueCard) {
+      const formTechnique = CLASS_CONFIGS[s.baseClass].techniqueCard
+      s.techniqueCard = s.deck.some(card => card.cardId === formTechnique) ? formTechnique : 'overload'
+    }
     return s
   } catch { return null }
 }
@@ -48,9 +41,38 @@ export function clearCampaign() {
 export function newCampaign(baseClass: PlayerClass): CampaignState {
   const cfg = CLASS_CONFIGS[baseClass]
   const deck: CampaignCard[] = cfg.deck.map(cardId => ({ cardId, tier: 1 }))
-  const state: CampaignState = { runNumber: 0, baseClass, deck, build: {}, classesIn: [baseClass], powerLevel: 1, story: emptyStory() }
+  const state: CampaignState = {
+    runNumber: 0,
+    baseClass,
+    deck,
+    build: {},
+    techniqueCard: 'overload',
+    classesIn: [baseClass],
+    powerLevel: 1,
+  }
   saveCampaign(state)
   return state
+}
+
+export function replaceTechniquePair(
+  deck: CampaignCard[],
+  previousCardId: string,
+  nextCardId: string,
+): CampaignCard[] {
+  if (previousCardId === nextCardId) return deck.map(card => ({ ...card }))
+
+  let replaced = 0
+  const nextDeck = deck.map(card => {
+    if (card.cardId !== previousCardId || replaced >= 2) return { ...card }
+    replaced++
+    return { cardId: nextCardId, tier: 1 }
+  })
+
+  while (replaced < 2) {
+    nextDeck.push({ cardId: nextCardId, tier: 1 })
+    replaced++
+  }
+  return nextDeck
 }
 
 // Absorbing a form grants adapted carried cards — cheaper, weaker off-form tools
@@ -64,15 +86,15 @@ export const ABSORB_KIT: Record<PlayerClass, string> = {
 const ABSORB_COPIES = 3   // copies added per absorb (enough to draw & meld reliably)
 
 const ABSORB_DESC: Record<PlayerClass, string> = {
-  warrior: 'Carry 3 Oathcuts. Direct damage beats immunity.',
-  mage:    'Carry 3 Cinders. Burst outruns healing.',
-  rogue:   'Carry 3 Needles. Poison slips through armor.',
+  warrior: 'Carry 3 Loose Cherries. Direct damage breaks sealed foes.',
+  mage:    'Carry 3 Loose Citrus. Burst outruns refills.',
+  rogue:   'Carry 3 Loose Sour. Zing slips through rind.',
 }
 
 const ABSORB_FLAVOR: Record<PlayerClass, string> = {
-  warrior: 'Take the cut. Leave the oath.',
-  mage:    'Keep one coal in the mouth.',
-  rogue:   'Leave the needle in.',
+  warrior: 'Take the pull. Leave the pit.',
+  mage:    'Keep one bright drop.',
+  rogue:   'Leave the sour in.',
 }
 
 const CLASS_LABEL: Record<PlayerClass, string> = {
@@ -94,9 +116,9 @@ export interface EvolutionOption {
 }
 
 const STRENGTHEN_FLAVOR: Record<PlayerClass, string> = {
-  warrior: 'The vow cuts back.',
-  mage:    'The coal learns hunger.',
-  rogue:   'The needle finds the gap.',
+  warrior: 'The red presses deeper.',
+  mage:    'The juice learns pressure.',
+  rogue:   'The sour finds the seam.',
 }
 
 export function getEvolutionOptions(state: CampaignState): EvolutionOption[] {
@@ -111,7 +133,7 @@ export function getEvolutionOptions(state: CampaignState): EvolutionOption[] {
   // STRENGTHEN: same class deepens — stat multiplier increases
   options.push({
     kind:   { type: 'strengthen' },
-    label:  'DEEPEN',
+    label:  'PRESS DEEPER',
     icon,
     desc:   `All ${CLASS_CONFIGS[baseClass].displayName} card values gain +35% base power.`,
     flavor: STRENGTHEN_FLAVOR[baseClass],
@@ -121,7 +143,7 @@ export function getEvolutionOptions(state: CampaignState): EvolutionOption[] {
   for (const cls of otherClasses) {
     options.push({
       kind:   { type: 'absorb', cls },
-      label:  `ABSORB ${CLASS_LABEL[cls].toUpperCase()}`,
+      label:  `MIX IN ${CLASS_LABEL[cls].toUpperCase()}`,
       icon:   cls === 'warrior' ? buildIcon('strike', 0xef4444) : cls === 'mage' ? buildIcon('fireball', 0xf97316) : buildIcon('slash', 0xa855f7),
       desc:   ABSORB_DESC[cls],
       flavor: ABSORB_FLAVOR[cls],

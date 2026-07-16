@@ -3,15 +3,15 @@ export function showCampaignComplete(): Promise<void> {
     const overlay = document.createElement('div')
     overlay.className = 'campaign-complete-overlay'
     overlay.innerHTML = `
-      <div class="cc-eyebrow">ALL MARKS HELD</div>
-      <div class="cc-title">MELD TO<br>ALL HELD</div>
+      <div class="cc-eyebrow">REALISTIC FRUIT SNACK SIM</div>
+      <div class="cc-title">MELD IN<br>YOUR HAND</div>
       <div class="cc-body">
-        For one breath, you remember the name.
+        Somewhere, Candy calls it a draw.
       </div>
       <div class="cc-pause">
-        Then the Meld opens again.
+        The Fruit Front refuses the word.
       </div>
-      <button class="cc-dissolve">ENTER AGAIN</button>
+      <button class="cc-dissolve">HOLD THE LINE</button>
     `
     document.body.appendChild(overlay)
     requestAnimationFrame(() => overlay.classList.add('visible'))

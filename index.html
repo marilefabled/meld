@@ -3,10 +3,10 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Meld to All Held</title>
-  <meta name="description" content="Meld cards. Hold everything. Fight three foes while climbing Tier I → II → III. A browser card battle built with Three.js." />
-  <meta property="og:title" content="Meld to All Held" />
-  <meta property="og:description" content="Meld cards. Hold everything. A card battle where merging is the move and holding is the mastery." />
+  <title>Meld In Your Hand</title>
+  <meta name="description" content="Lead the Fruit Front against Candy. Fuse matching pieces, hold your line, and break the perfect seal." />
+  <meta property="og:title" content="Meld In Your Hand" />
+  <meta property="og:description" content="A dead-serious snack war: the Fruit Front against Candy, fought one meld at a time." />
   <meta property="og:type" content="website" />
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%230a0a18'/><text x='16' y='24' text-anchor='middle' font-family='monospace' font-weight='900' font-size='22' fill='%236366f1'>M</text></svg>" />
   <style>
@@ -49,7 +49,7 @@
     #hud {
       position: fixed; top: 0; left: 0; width: 100%;
       display: flex; justify-content: space-between; align-items: flex-start;
-      padding: 10px 16px; gap: 12px;
+      padding: 10px 16px 10px 72px; gap: 12px;
       pointer-events: none; z-index: 10;
     }
 
@@ -122,6 +122,41 @@
     }
     /* ── Loadout: visual deck grid ───────────────────────── */
     .lo-head { text-align: center; }
+    .lo-technique {
+      width: min(92vw, 620px); margin-top: 14px;
+      display: grid; grid-template-columns: 118px 1fr; align-items: stretch;
+      border-top: 1px solid rgba(148,163,184,.14);
+      border-bottom: 1px solid rgba(148,163,184,.14);
+    }
+    .lo-tech-label {
+      display: flex; align-items: center;
+      font: 800 9px/1 'Segoe UI', sans-serif; letter-spacing: .16em;
+      color: rgba(165,180,252,.72);
+    }
+    .lo-tech-options { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 6px 0; }
+    .lo-tech-option {
+      min-width: 0; height: 54px; padding: 7px 10px;
+      display: grid; grid-template-columns: 34px 1fr auto; align-items: center; gap: 8px;
+      color: #cbd5e1; background: rgba(255,255,255,.018);
+      border: 1px solid rgba(148,163,184,.12); border-radius: 6px;
+      cursor: pointer; text-align: left;
+      transition: background .14s, border-color .14s, box-shadow .14s;
+    }
+    .lo-tech-option:hover { background: color-mix(in srgb, var(--tc) 8%, rgba(255,255,255,.02)); }
+    .lo-tech-option.sel {
+      color: #f8fafc; border-color: color-mix(in srgb, var(--tc) 65%, transparent);
+      background: color-mix(in srgb, var(--tc) 11%, rgba(10,11,24,.9));
+      box-shadow: inset 3px 0 0 var(--tc), 0 0 18px color-mix(in srgb, var(--tc) 14%, transparent);
+    }
+    .lo-tech-icon { width: 32px; height: 32px; display: block; }
+    .lo-tech-icon svg { width: 100%; height: 100%; }
+    .lo-tech-copy { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+    .lo-tech-copy b { font: 800 11px/1 'Segoe UI', sans-serif; letter-spacing: .04em; }
+    .lo-tech-copy small {
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      font: 500 9px/1 'Segoe UI', sans-serif; color: rgba(203,213,225,.58);
+    }
+    .lo-tech-count { font: 800 9px/1 'Segoe UI', sans-serif; color: var(--tc); }
     .lo-grid {
       display: flex; flex-wrap: wrap; justify-content: center; gap: 12px;
       max-width: 700px; margin: 1.4rem 0 1.6rem;
@@ -1224,6 +1259,13 @@
       color: rgba(206,217,255,.6) !important;
       margin-bottom: 8px;
     }
+    .rw-rival {
+      width: min(86vw, 640px);
+      margin: -2px 0 4px;
+      color: rgba(254,205,211,.78);
+      font: italic 500 12px/1.45 'Segoe UI', sans-serif;
+      text-align: center;
+    }
     .rw-options {
       align-items: stretch;
     }
@@ -1256,6 +1298,38 @@
     }
     .rw-variant {
       border-color: rgba(252,211,77,.24) !important;
+    }
+    @media (max-width: 640px) {
+      .reward-overlay {
+        gap: 12px !important;
+        padding: 28px 0 !important;
+      }
+      .rw-eyebrow { font-size: 10px; }
+      .rw-title { font-size: 22px !important; }
+      .rw-sub { margin-bottom: 2px; }
+      .rw-rival {
+        width: min(84vw, 330px);
+        margin: 0;
+        font-size: 11px;
+      }
+      .rw-options {
+        width: 100%;
+        padding: 2px calc((100vw - min(80vw, 270px)) / 2) 12px;
+        gap: 12px !important;
+        overflow-x: auto;
+        justify-content: flex-start;
+        scroll-snap-type: x mandatory;
+        scrollbar-width: none;
+        -webkit-overflow-scrolling: touch;
+      }
+      .rw-options::-webkit-scrollbar { display: none; }
+      .rw-option {
+        flex: 0 0 min(80vw, 270px);
+        width: min(80vw, 270px) !important;
+        min-height: 240px;
+        scroll-snap-align: center;
+      }
+      .rw-art { height: 76px !important; }
     }
 
     .evolution-overlay {
@@ -1306,9 +1380,12 @@
         height: 56px !important;
       }
       .lo-grid {
-        margin-top: 14px !important;
+        margin-top: 10px !important;
         margin-bottom: 12px !important;
       }
+      .lo-technique { margin-top: 9px; }
+      .lo-tech-option { height: 48px; padding-top: 5px; padding-bottom: 5px; }
+      .lo-tech-icon { width: 28px; height: 28px; }
       .lo-fight {
         margin-top: 14px !important;
       }

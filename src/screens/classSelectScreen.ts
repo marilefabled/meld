@@ -16,11 +16,11 @@ export function showClassSelect({ mode = 'returning' }: { mode?: 'first-run' | '
     const overlay = document.createElement('div')
     overlay.className = 'class-select-overlay'
     overlay.innerHTML = `
-      <div class="cs-eyebrow">${firstRun ? 'CHOOSE WHAT RETURNS' : 'UNHELD AGAIN'}</div>
-      <div class="cs-title">TAKE A FORM</div>
+      <div class="cs-eyebrow">${firstRun ? 'THE CANDY COURT IS WAITING' : 'BACK IN THE POUCH'}</div>
+      <div class="cs-title">PICK YOUR FRUIT</div>
       <div class="cs-body">${firstRun
-        ? 'One form. One method. The rest must be earned.'
-        : 'The name is gone. The method remains.'}</div>
+        ? 'They call you candy. You know better.'
+        : 'Candy remembers the shape. Fruit remembers the standard.'}</div>
       <div class="cs-options">
         ${classes.map(cls => {
           const cfg  = CLASS_CONFIGS[cls]

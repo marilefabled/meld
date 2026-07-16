@@ -16,9 +16,11 @@ import type { Modifier } from './data/modifiers.js'
 import { buildIcon, buildStatusIcon, cardArt, type IconShape } from './engine/icons.js'
 import { bigCardHTML, showCardPreview, hideCardPreview } from './view/cardPreview.js'
 import { showRewardScreen, type Reward } from './screens/rewardScreen.js'
+import { showRivalOpening } from './screens/rivalDialogue.js'
 import { progression } from './data/progression.js'
 import { saveCheckpoint, clearCheckpoint } from './data/campaign.js'
 import { buildTutorialOpeningDeck, type BattleTutorialConfig } from './data/tutorial.js'
+import { candyRivalFor } from './data/rivals.js'
 
 const cards = createRegistry<CardDef>('cards')
 cards.loadAll(CARD_DATA)
@@ -27,7 +29,7 @@ cards.loadAll(CARD_DATA)
 export type { PlayerClass }
 export type { BattleTutorialConfig }
 
-export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom = 0, startPlayerHP, startRunFragments = 0, build = DEFAULT_BUILD, modifier = null, customDeck, encounters = ENCOUNTERS, isFinale = false, onVictory, onDefeat, onBeforeEncounter, onDefeatBeat, isFirstRun = false, tutorial = null, powerLevel = 1, classesIn = [] as PlayerClass[], runNumber = 0 }: { playerClass?: PlayerClass; startFrom?: number; startPlayerHP?: number; startRunFragments?: number; build?: CardBuild; modifier?: Modifier | null; customDeck?: { cardId: string; tier: number }[]; encounters?: EnemyDef[]; isFinale?: boolean; onVictory?: () => void; onDefeat?: () => void; onBeforeEncounter?: (enemyName: string, idx: number) => Promise<void>; onDefeatBeat?: (enemyName: string) => Promise<void>; isFirstRun?: boolean; tutorial?: BattleTutorialConfig | null; powerLevel?: number; classesIn?: PlayerClass[]; runNumber?: number } = {}): { dispose: () => void } {
+export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom = 0, startPlayerHP, startRunFragments = 0, build = DEFAULT_BUILD, modifier = null, customDeck, encounters = ENCOUNTERS, isFinale = false, onVictory, onDefeat, isFirstRun = false, tutorial = null, powerLevel = 1, classesIn = [] as PlayerClass[], runNumber = 0 }: { playerClass?: PlayerClass; startFrom?: number; startPlayerHP?: number; startRunFragments?: number; build?: CardBuild; modifier?: Modifier | null; customDeck?: { cardId: string; tier: number }[]; encounters?: EnemyDef[]; isFinale?: boolean; onVictory?: () => void; onDefeat?: () => void; isFirstRun?: boolean; tutorial?: BattleTutorialConfig | null; powerLevel?: number; classesIn?: PlayerClass[]; runNumber?: number } = {}): { dispose: () => void } {
   const classConfig = CLASS_CONFIGS[playerClass]
   // What the player has become: which off-class essences they've absorbed, and how
   // deeply they've strengthened. Drives the visual "marks" grafted onto the form.
@@ -565,8 +567,8 @@ export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom 
   }
 
   function endTurnVoice(tutorialGate = isTutorialMeldGate()): string {
-    if (tutorialGate) return 'MELD FIRST'
-    if (!gameState.is('player_turn')) return 'MARK ACTS'
+    if (tutorialGate) return 'FUSE FIRST'
+    if (!gameState.is('player_turn')) return 'SEAL TIGHTENS'
     if (energy > 0) return `BANK ${energy} DRAW${energy > 1 ? 'S' : ''}`
     return 'LET IT ANSWER'
   }
@@ -587,9 +589,9 @@ export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom 
   }
 
   function traitTell(t: EnemyTrait): { label: string; hint: string; color: number } {
-    if (t.kind === 'immune') return { label: 'IMMUNE', hint: 'status fails, raw damage sticks', color: 0xc4b5fd }
-    if (t.kind === 'armored') return { label: 'ARMORED', hint: `opens with ${t.absorb} shield`, color: 0xfbbf24 }
-    return { label: 'REGEN', hint: `heals ${t.hp} each turn`, color: 0x4ade80 }
+    if (t.kind === 'immune') return { label: 'CANDIED', hint: 'status fails; raw damage sticks', color: 0xc4b5fd }
+    if (t.kind === 'armored') return { label: 'HARD-SET', hint: `gains ${t.absorb} rind each turn`, color: 0xfbbf24 }
+    return { label: 'REFILLING', hint: `draws ${t.hp} juice each turn`, color: 0x4ade80 }
   }
 
   function showTraitTell() {
@@ -603,9 +605,9 @@ export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom 
 
   function intentHint(m: EnemyMove): string {
     const trait = enemyTraits[0]?.kind
-    if (trait === 'immune') return 'Status cards will not bite. Hit it clean.'
-    if (trait === 'armored') return 'Armor resets before it acts. Poison ignores it.'
-    if (trait === 'regen') return 'It repairs every turn. Spend damage in bursts.'
+    if (trait === 'immune') return 'Candy glaze rejects status. Hit it clean.'
+    if (trait === 'armored') return 'Its rind resets before it acts. Poison slips through.'
+    if (trait === 'regen') return 'It refills every turn. Burst the seal.'
     if (m.type === 'attack' && m.status?.target === 'player') return `Adds ${m.status.kind}. Block or end it fast.`
     if (m.type === 'attack') return 'Incoming damage. Hold only what you can afford.'
     if (m.type === 'defend') return 'Shield is coming. Set up a bigger meld.'
@@ -1002,7 +1004,7 @@ export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom 
           const canAfford = energy >= meldCost && (!tutorialGate || tutorialTarget)
           const btn = document.createElement('button')
           btn.className = 'merge-btn'
-          btn.textContent = tutorialTarget ? `FORGE FIRST (${meldCost}⚡)` : `⬆ MELD (${meldCost}⚡)`
+          btn.textContent = tutorialTarget ? `FUSE FIRST (${meldCost}⚡)` : `⬆ MELD (${meldCost}⚡)`
           btn.disabled = !canAfford
           btn.addEventListener('click', e => { e.stopPropagation(); doMerge(card) })
           el.appendChild(btn)
@@ -1451,11 +1453,15 @@ export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom 
       const attackAnim =
         skill === 'fireball' ? animFireball
         : skill === 'overload' ? animOverload
+        : skill === 'fuse'     ? animOverload
+        : skill === 'leech'    ? animSlash
         : skill === 'slash'    ? animSlash
         : skill === 'strike'   ? animStrike
         : (value >= 8 ? animFireball : animStrike)   // enemy moves have no skill → by size
       attackAnim(actor, targetPos, color, () => {
         dealDamage(targetStats, dmgValue, targetHdPos)
+        const healAmt = opts.healAmount ?? 0
+        if (healAmt > 0) dealHeal(actorStats, healAmt, actorHdPos)
         const k = Math.min(1, dmgValue / 26)   // 0..1 impact intensity by damage
         shake.addTrauma(trauma + k * 0.4)
         hitStop(0.05 + k * 0.06)               // brief freeze for weight
@@ -1545,12 +1551,20 @@ export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom 
       safety,
       trauma:     0.3,
       postDelay:  0.22,
-      healAmount: def.type === 'defend' ? Math.round((variant.heal ?? 0) * powerLevel) : undefined,
+      healAmount: Math.round((variant.heal ?? 0) * powerLevel),
       skill:      def.shape,
       onLand: () => {
         if (def.type === 'attack') sfx.hit()
         else if (def.type === 'defend') sfx.shield()
         else sfx.heal()
+        if (variant.retaliate) {
+          const returned = Math.round(variant.retaliate * powerLevel)
+          const pos = enemy.group.position.clone(); pos.y += 2.2
+          dealDamage(enemyStats, returned, pos)
+          impactRing(pos, def.color, 0.72)
+          vfx.burst(pos, 9, { speed: 2.1, spread: 0.7, up: 0.35, life: 0.38, size: 0.11, color: def.color })
+          sfx.hit()
+        }
         if (variant.status) {
           const st      = variant.status
           const toEnemy = st.target === 'enemy'
@@ -1597,9 +1611,7 @@ export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom 
     })
   }
 
-  // Play the opponent's "before" story beat (if any), then set the encounter up.
   async function enterEncounter(idx: number) {
-    if (onBeforeEncounter) await onBeforeEncounter(encounters[idx].name, idx)
     if (_firstEncounter) {
       _firstEncounter = false
       startEncounter(idx)
@@ -1650,20 +1662,23 @@ export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom 
     }
 
     $enemyName.textContent = def.name
-    $encounterInfo.textContent = isFinale ? 'THE MELD' : `MARK ${idx + 1} / ${encounters.length}`
+    $encounterInfo.textContent = isFinale ? 'THE ORIGINAL' : `CANDY SEAL ${idx + 1} / ${encounters.length}`
 
     pickEnemyIntent()
     updateHUD()
-    if (isFinale) {
-      mirrorEntrance(scale, startPlayerTurn)
-    } else if (idx > 0) {
-      flash(`MARK ${idx + 1}  ·  ${def.name.toUpperCase()}`, 1.0)
-      timer.after(0.9, showTraitTell)
-      timer.after(1.45, startPlayerTurn)
-    } else {
-      timer.after(0.25, showTraitTell)
-      timer.after(0.85, startPlayerTurn)
+    const beginBattle = () => {
+      if (isFinale) {
+        mirrorEntrance(scale, startPlayerTurn)
+      } else if (idx > 0) {
+        flash(`CANDY SEAL ${idx + 1}  ·  ${def.name.toUpperCase()}`, 1.0)
+        timer.after(0.9, showTraitTell)
+        timer.after(1.45, startPlayerTurn)
+      } else {
+        timer.after(0.25, showTraitTell)
+        timer.after(0.85, startPlayerTurn)
+      }
     }
+    void showRivalOpening(candyRivalFor(def)).then(beginBattle)
   }
 
   // ── Mirror finale staging — the one fight that should feel like a finale. ─────
@@ -1706,7 +1721,7 @@ export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom 
     timer.after(1.5,  () => { vfx.burst(core, 26, { speed: 2.2, spread: 0.7, up: 0.4, life: 0.5, size: 0.12, color: 0xe9deff }); shake.addTrauma(0.3) })
 
     // Held beat, the title settles, then control returns with lights restored.
-    timer.after(2.4, () => flash('THE MELD', 1.6))
+    timer.after(2.4, () => flash('THE ORIGINAL', 1.6))
     timer.after(3.7, () => {
       vig.style.transition = 'opacity 0.9s ease'
       vig.style.opacity = '0'
@@ -1798,7 +1813,7 @@ export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom 
     updateHUD()
     updateEndTurnButton()
 
-    flash('MARK ACTS')
+    flash('CANDY TIGHTENS THE SEAL')
 
     timer.after(0.4, () => {
       const move = enemyNextMove
@@ -1893,8 +1908,8 @@ export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom 
     $hand.classList.remove('dimmed')
     timer.after(0.45, () => $enemyIntent.classList.add('show'))
     flash(`TURN ${turnCount}`, 0.6)
-    if (isTutorialMeldGate()) timer.after(0.75, () => flash('TWO MATCHING CARDS. MAKE ONE.', 2.4))
-    else if (isFirstRun && turnCount === 1) timer.after(0.75, () => flash('HOLD to carry  ·  MELD pairs to forge', 2.2))
+    if (isTutorialMeldGate()) timer.after(0.75, () => flash('TWO MATCHING PIECES. FUSE THEM.', 2.4))
+    else if (isFirstRun && turnCount === 1) timer.after(0.75, () => flash('HOLD pieces  ·  MELD pairs to fuse', 2.2))
     animateHoldReturn(() => {
       setAnimating(false)
       renderHand(true)
@@ -1904,7 +1919,7 @@ export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom 
   $endTurn.addEventListener('click', () => {
     if (!gameState.is('player_turn') || _animating) return
     if (isTutorialMeldGate()) {
-      flash('MELD THE PAIR FIRST', 1.0)
+      flash('FUSE THE PAIR FIRST', 1.0)
       return
     }
     $endTurn.classList.add('disabled')
@@ -2001,10 +2016,18 @@ export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom 
         if (encounterIdx < encounters.length - 1) {
           runFragments += 10
           progression.addFragments(10)
-          flash(`MARK ${encounterIdx + 1} RETURNED  ⬡ +10`, 1.2)
+          flash(`CANDY SEAL ${encounterIdx + 1} BROKEN  ⬡ +10`, 1.2)
           updateHUD()
           await new Promise<void>(r => timer.after(0.55, r))
-          const reward = await showRewardScreen({ encIdx: encounterIdx, build, playerClass, enemyTraits, enemyName: encounters[encounterIdx].name })
+          const rival = candyRivalFor(encounters[encounterIdx])
+          const reward = await showRewardScreen({
+            encIdx: encounterIdx,
+            build,
+            playerClass,
+            enemyTraits,
+            enemyName: encounters[encounterIdx].name,
+            rivalLine: rival.defeat,
+          })
           applyReward(reward)
           saveCheckpoint({ campaignRunNumber: runNumber, encounterIdx: encounterIdx + 1, playerHP: playerStats.get('hp'), runFragments })
           await enterEncounter(encounterIdx + 1)
@@ -2016,12 +2039,12 @@ export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom 
           gameState.set('game_over')
           sfx.victory()
           victoryMoment(() => {
-            $goTitle.textContent = isFinale ? 'MELD TO ALL HELD' : 'RUN HELD'
+            $goTitle.textContent = isFinale ? 'THE BAG IS OPEN' : 'BAG OPENED'
             $goTitle.style.color = isFinale ? '#a78bfa' : '#22d3ee'
             $goSub.textContent = isFinale
-              ? `Your echo is held · ${turnCount} turns · ⬡ +${runFragments}`
-              : `Three marks held · ${turnCount} turns · ⬡ +${runFragments}`
-            if (onVictory) { _endMode = 'victory'; $goRestart.textContent = isFinale ? 'RETURN TO THE MELD →' : 'RETURN TO THE RUN →' }
+              ? `The Original split · ${turnCount} turns · ⬡ +${runFragments}`
+              : `Three Candy seals broken · ${turnCount} turns · ⬡ +${runFragments}`
+            if (onVictory) { _endMode = 'victory'; $goRestart.textContent = isFinale ? 'OPEN ANOTHER BAG →' : 'RETURN TO THE BAG →' }
             $gameOver.classList.add('show')
           })
         }
@@ -2033,18 +2056,14 @@ export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom 
       timer.after(0.3, () => {
         sfx.defeat()
         defeatCollapse(() => {
-          void (async () => {
-            // Death ceremony — the fallen form's last words to the foe that beat it.
-            if (onDefeatBeat) await onDefeatBeat(encounters[encounterIdx].name)
-            progression.recordRunEnd(false, encounterIdx)
-            clearCheckpoint()
-            gameState.set('game_over')
-            $goTitle.textContent = 'FORM LOST'
-            $goTitle.style.color = '#ef4444'
-            $goSub.textContent = `Mark ${encounterIdx + 1} held · ${turnCount} turns · ⬡ +${runFragments}`
-            if (onDefeat) { _endMode = 'defeat'; $goRestart.textContent = 'RETURN UNHELD' }
-            $gameOver.classList.add('show')
-          })()
+          progression.recordRunEnd(false, encounterIdx)
+          clearCheckpoint()
+          gameState.set('game_over')
+          $goTitle.textContent = 'BAG RESEALED'
+          $goTitle.style.color = '#ef4444'
+          $goSub.textContent = `Candy seal ${encounterIdx + 1} broken · ${turnCount} turns · ⬡ +${runFragments}`
+          if (onDefeat) { _endMode = 'defeat'; $goRestart.textContent = 'SHAKE BACK →' }
+          $gameOver.classList.add('show')
         })
       })
       return true

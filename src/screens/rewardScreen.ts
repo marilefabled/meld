@@ -16,6 +16,7 @@ export interface RewardContext {
   playerClass: PlayerClass
   enemyTraits: EnemyTrait[]
   enemyName?: string
+  rivalLine?: string
 }
 
 interface RewardOption {
@@ -98,18 +99,19 @@ export function showRewardScreen(ctx: RewardContext): Promise<Reward> {
 
     const overlay = document.createElement('div')
     overlay.className = 'reward-overlay'
-    const enemyName = ctx.enemyName ?? 'THE MARK'
+    const enemyName = ctx.enemyName ?? 'THE SEAL'
     overlay.innerHTML = `
-      <div class="rw-eyebrow">${enemyName.toUpperCase()} RETURNED</div>
-      <div class="rw-title">KEEP ONE</div>
-      <div class="rw-sub">${enemyName} left three answers</div>
+      <div class="rw-eyebrow">${enemyName.toUpperCase()} BROKE OPEN</div>
+      <div class="rw-title">TAKE ONE</div>
+      <div class="rw-sub">Candy left three pieces behind</div>
+      ${ctx.rivalLine ? `<div class="rw-rival">“${ctx.rivalLine}”</div>` : ''}
       <div class="rw-options">
         ${options.map((o, i) => `
           <button class="rw-option rw-${o.kind}${o.art ? ' rw-card' : ''}" data-i="${i}"${o.cc ? ` style="--cc:${o.cc}"` : ''}>
             ${o.art
               ? `<div class="rw-art">${o.art}<div class="rw-glyph">${o.icon}</div></div>`
               : `<div class="rw-icon">${o.icon}</div>`}
-            <div class="rw-kind">${o.kind === 'card' ? 'ADD' : o.kind === 'hp' ? 'REST' : 'ALTER'}</div>
+            <div class="rw-kind">${o.kind === 'card' ? 'FRUIT FRONT' : o.kind === 'hp' ? 'RECOVER' : 'CANDY TECH'}</div>
             <div class="rw-label">${o.label}</div>
             <div class="rw-desc">${o.sub}</div>
             ${o.compare ? `<div class="rw-compare">${o.compare}</div>` : ''}

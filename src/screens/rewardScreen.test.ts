@@ -11,9 +11,9 @@ describe('buildRewardOptions', () => {
     })
 
     expect(options).toHaveLength(3)
-    expect(options[0].label).toBe('Keep Needle')
+    expect(options[0].label).toBe('Keep Sour Thread')
     expect(options[0].sub).toContain('armored')
-    expect(options[2].label).toContain('Needle')
+    expect(options[2].label).toContain('Sour Thread')
   })
 
   it('falls back to class signature card when the trait lesson is off-class', () => {
@@ -24,7 +24,7 @@ describe('buildRewardOptions', () => {
       enemyTraits: [{ kind: 'immune', statuses: ['poison', 'weak', 'vulnerable'] }],
     })
 
-    expect(options[0].label).toBe('Keep Cinder')
-    expect(options[2].label).toContain('Oathcut')
+    expect(options[0].label).toBe('Keep Citrus Pop')
+    expect(options[2].label).toContain('Cherry Pull')
   })
 })

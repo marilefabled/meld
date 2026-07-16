@@ -1,91 +1,18 @@
-import { runSim, mulberry32, findPairs, type Strategy, type SimCtx } from './battleSim.js'
-import { CARD_DATA, DEFAULT_BUILD, getVariant } from '../data/cards.js'
+import { runSim, mulberry32, type Strategy } from './battleSim.js'
+import { DEFAULT_BUILD } from '../data/cards.js'
 import { ENCOUNTERS } from '../data/encounters.js'
 import type { PlayerClass } from '../data/classes.js'
-
-function cardHasWeakStatus(cardId: string, tier: number): boolean {
-  const def = CARD_DATA[cardId]
-  if (!def) return false
-  const v = getVariant(def, tier, DEFAULT_BUILD, cardId)
-  return v.status?.kind === 'weak' && v.status?.target === 'enemy'
-}
-
-function enemyIsImmuneToWeak(ctx: SimCtx): boolean {
-  return ctx.enemyTraits.some(t => t.kind === 'immune' && t.statuses.includes('weak' as never))
-}
+import { balancedStrategy, greedyStrategy, meldEagerStrategy } from './strategies.js'
 
 // ── Strategies ────────────────────────────────────────────────────────────────
-
-function greedyFn(ctx: SimCtx): ReturnType<Strategy> {
-  const attacks = ctx.hand
-    .filter(c => CARD_DATA[c.cardId]?.type === 'attack' && (CARD_DATA[c.cardId]?.cost ?? 1) <= ctx.energy)
-    .sort((a, b) => {
-      const da = CARD_DATA[a.cardId]; const db = CARD_DATA[b.cardId]
-      const va = da ? getVariant(da, a.tier, DEFAULT_BUILD, a.cardId).value : 0
-      const vb = db ? getVariant(db, b.tier, DEFAULT_BUILD, b.cardId).value : 0
-      return vb - va
-    })
-  if (attacks.length > 0) return { type: 'play', card: attacks[0] }
-
-  const defends = ctx.hand
-    .filter(c => CARD_DATA[c.cardId]?.type === 'defend' && (CARD_DATA[c.cardId]?.cost ?? 1) <= ctx.energy)
-    .sort((a, b) => b.tier - a.tier)
-  if (defends.length > 0) return { type: 'play', card: defends[0] }
-
-  return { type: 'end' }
-}
-
-function meldEagerFn(ctx: SimCtx): ReturnType<Strategy> {
-  const pairs = findPairs(ctx.hand)
-  for (const [a, b] of pairs) {
-    const cost = Math.min((CARD_DATA[a.cardId]?.cost ?? 1) * 2, 3)
-    if (ctx.energy >= cost) return { type: 'meld', a, b }
-  }
-  return greedyFn(ctx)
-}
-
-function balancedFn(ctx: SimCtx): ReturnType<Strategy> {
-  if (ctx.playerHp > ctx.playerMaxHp * 0.7) {
-    const pairs = findPairs(ctx.hand)
-    for (const [a, b] of pairs) {
-      const cost = Math.min((CARD_DATA[a.cardId]?.cost ?? 1) * 2, 3)
-      if (ctx.energy >= cost) return { type: 'meld', a, b }
-    }
-  }
-
-  const lowHp        = ctx.playerHp < ctx.playerMaxHp * 0.4
-  const immuneToWeak = enemyIsImmuneToWeak(ctx)
-  const defends = ctx.hand
-    .filter(c => {
-      const def = CARD_DATA[c.cardId]
-      if (!def || def.type !== 'defend' || (def.cost ?? 1) > ctx.energy) return false
-      // Skip Hush against immune enemies — the Weak effect is blocked (hold for meld instead)
-      if (immuneToWeak && cardHasWeakStatus(c.cardId, c.tier)) return false
-      return true
-    })
-    .sort((a, b) => b.tier - a.tier)
-  const attacks = ctx.hand
-    .filter(c => CARD_DATA[c.cardId]?.type === 'attack' && (CARD_DATA[c.cardId]?.cost ?? 1) <= ctx.energy)
-    .sort((a, b) => {
-      const da = CARD_DATA[a.cardId]; const db = CARD_DATA[b.cardId]
-      const va = da ? getVariant(da, a.tier, DEFAULT_BUILD, a.cardId).value : 0
-      const vb = db ? getVariant(db, b.tier, DEFAULT_BUILD, b.cardId).value : 0
-      return vb - va
-    })
-
-  if (lowHp && defends.length > 0) return { type: 'play', card: defends[0] }
-  if (attacks.length > 0) return { type: 'play', card: attacks[0] }
-  if (defends.length > 0) return { type: 'play', card: defends[0] }
-  return { type: 'end' }
-}
 
 // ── Runner ────────────────────────────────────────────────────────────────────
 const TRIALS = 20_000
 const CLASSES: PlayerClass[] = ['warrior', 'mage', 'rogue']
 const STRATEGIES: { name: string; fn: Strategy }[] = [
-  { name: 'greedy',     fn: greedyFn },
-  { name: 'meld-eager', fn: meldEagerFn },
-  { name: 'balanced',   fn: balancedFn },
+  { name: 'greedy',     fn: greedyStrategy },
+  { name: 'meld-eager', fn: meldEagerStrategy },
+  { name: 'balanced',   fn: balancedStrategy },
 ]
 
 const ENC_NAMES = ENCOUNTERS.map(e => e.name ?? `enc${ENCOUNTERS.indexOf(e)}`)
@@ -142,7 +69,7 @@ const HEADER = row('class', 'strategy', 'win%', 'trn(w)', 'trn(a)', 'hp(win)', '
   ...ENC_NAMES.map(n => `die@${n.slice(0, 5)}`))
 const SEP = '─'.repeat(HEADER.length)
 
-console.log(`\nMELD Balance Sim  ·  ${TRIALS.toLocaleString()} trials per configuration`)
+console.log(`\nMeld In Your Hand Balance Sim  ·  ${TRIALS.toLocaleString()} trials per configuration`)
 console.log(SEP)
 console.log(HEADER)
 console.log(SEP)

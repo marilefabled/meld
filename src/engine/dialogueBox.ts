@@ -22,6 +22,8 @@ export interface DialogueBoxOpts {
   position?: 'top' | 'center' | 'bottom'
   /** CSS max-width of the dialogue panel. Default '680px'. */
   width?: string
+  /** Optional class added to the overlay for authored dialogue treatments. */
+  className?: string
   /**
    * Optional portrait store. When provided the box auto-resolves speaker names
    * to portrait images — no need to set `node.portrait` on every node.
@@ -130,11 +132,12 @@ export function createDialogueBox(
   const container = opts.container ?? document.body
   const position  = opts.position  ?? 'bottom'
   const width     = opts.width     ?? '680px'
+  const className = opts.className ?? ''
   const portraits = opts.portraits
 
   // ── DOM ────────────────────────────────────────────────────────────────
   const overlay = document.createElement('div')
-  overlay.className = `db-overlay db-${position}`
+  overlay.className = `db-overlay db-${position}${className ? ` ${className}` : ''}`
   overlay.style.setProperty('--db-width', width)
 
   overlay.innerHTML = `

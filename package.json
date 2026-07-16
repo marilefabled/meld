@@ -12,7 +12,8 @@
     "test": "vitest run",
     "electron:dev": "concurrently --kill-others-on-fail -n vite,electron -c cyan,magenta \"npm run dev\" \"wait-on http://localhost:3000 && cross-env NODE_ENV=development electron .\"",
     "electron:build": "npm run build && electron-builder",
-    "sim": "tsx src/sim/run.ts"
+    "sim": "tsx src/sim/run.ts",
+    "sim:techniques": "tsx src/sim/techniques.ts"
   },
   "dependencies": {
     "three": "0.165.0"
@@ -32,7 +33,7 @@
   },
   "build": {
     "appId": "com.marilefabled.meld",
-    "productName": "MELD",
+    "productName": "Meld In Your Hand",
     "directories": {
       "output": "release"
     },

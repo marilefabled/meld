@@ -11,7 +11,7 @@ export interface ProgressionState {
   unlockedVariants:  string[]   // variant .id strings
   runsCompleted:     number
   encountersCleared: number     // lifetime total
-  cycles:            number     // full games completed (Mirror beaten) — gates memory dialogue
+  cycles:            number     // full games completed (Mirror beaten); rotates encounter variants
   earnedRings:       string[]   // persistent trophy rings, `${class}-${path}` (see RingPath)
 }
 
@@ -81,14 +81,14 @@ export const progression = {
   recordRunEnd(won: boolean, encsCleared: number) {
     _s.runsCompleted++
     _s.encountersCleared += encsCleared
-    // Milestone: first ever Counting Heart clear unlocks all T3 alts
+    // Milestone: first ever The Last Drop clear unlocks all T3 alts
     if (won && _s.runsCompleted === 1) {
       for (const def of Object.values(CARD_DATA)) {
         const alt = def.variants[2][1]
         if (alt) this.unlock(alt.id)
       }
     }
-    // Milestone: first ever Iron Knuckle clear unlocks all T2 alts
+    // Milestone: first ever Hard Set clear unlocks all T2 alts
     if (_s.encountersCleared >= 2 && !_s.unlockedVariants.includes('first_brute')) {
       _s.unlockedVariants.push('first_brute')  // sentinel
       for (const def of Object.values(CARD_DATA)) {
@@ -99,7 +99,7 @@ export const progression = {
     persist(_s)
   },
 
-  // The Mirror is beaten → one full game (cycle) complete. Gates memory dialogue.
+  // The Mirror is beaten -> one full game (cycle) complete.
   recordCycle() {
     _s.cycles++
     persist(_s)

@@ -10,23 +10,56 @@ import { bigCardHTML, showCardPreview, hideCardPreview } from './view/cardPrevie
 import { CLASS_CONFIGS, type PlayerClass } from './data/classes.js'
 import type { MenuDef } from './engine/menu.js'
 import { progression } from './data/progression.js'
-import { loadCampaign, saveCampaign, clearCampaign, newCampaign, applyEvolution, emptyStory, TOTAL_RUNS, loadCheckpoint, clearCheckpoint, type CampaignState } from './data/campaign.js'
-import { getBeat, getDefeatBeat, playBeat, type StoryCtx } from './story.js'
-import { createDialogueRunner } from './engine/branchDialogue.js'
-import { createDialogueBox } from './engine/dialogueBox.js'
-import { INTRO, type IntroCtx } from './intro.js'
+import { loadCampaign, saveCampaign, clearCampaign, newCampaign, applyEvolution, replaceTechniquePair, TOTAL_RUNS, loadCheckpoint, clearCheckpoint, type CampaignState } from './data/campaign.js'
 import { showClassSelect } from './screens/classSelectScreen.js'
 import { showEvolutionScreen } from './screens/evolutionScreen.js'
 import { showModifierScreen } from './screens/modifierScreen.js'
 import { showShop } from './screens/shopScreen.js'
 import { showCampaignComplete } from './screens/campaignCompleteScreen.js'
+import { courtFinalMemorandum, courtLetterForRun } from './data/courtLetters.js'
+import { showCourtLetter } from './screens/courtLetterScreen.js'
 
 // ── Loadout screen ────────────────────────────────────────────────────────────
-function showLoadout(baseClass: PlayerClass, customCardIds?: string[], initialBuild?: CardBuild): Promise<CardBuild> {
+interface LoadoutChoice {
+  build: CardBuild
+  techniqueCard: string
+}
+
+const TECHNIQUE_COPY: Record<string, string> = {
+  overload: 'Build pressure. Pay in pulp.',
+  counter:  'Catch pressure. Throw it back.',
+  fuse:     'Prime the filling. Split the seal.',
+  leech:    'Draw the juice. Leave the sour.',
+}
+
+function showLoadout(
+  baseClass: PlayerClass,
+  customCardIds?: string[],
+  initialBuild?: CardBuild,
+  initialTechnique = 'overload',
+): Promise<LoadoutChoice> {
   return new Promise(resolve => {
-    const cardIds = customCardIds ?? [...new Set(CLASS_CONFIGS[baseClass].deck)]
+    const sourceCardIds = customCardIds ?? [...new Set(CLASS_CONFIGS[baseClass].deck)]
+    const formTechnique = CLASS_CONFIGS[baseClass].techniqueCard
+    let techniqueCard = initialTechnique === formTechnique ? formTechnique : 'overload'
+    const techniqueIds = new Set(['overload', formTechnique])
+    const visibleCardIds = () => {
+      let inserted = false
+      const ids: string[] = []
+      for (const id of sourceCardIds) {
+        if (techniqueIds.has(id)) {
+          if (!inserted) ids.push(techniqueCard)
+          inserted = true
+        } else if (!ids.includes(id)) {
+          ids.push(id)
+        }
+      }
+      if (!inserted) ids.push(techniqueCard)
+      return ids
+    }
     const build: CardBuild = Object.fromEntries(
-      cardIds.map(id => [id, ((initialBuild ?? {})[id] ?? [0, 0, 0]) as [number, number, number]])
+      [...new Set([...sourceCardIds, 'overload', formTechnique])]
+        .map(id => [id, ((initialBuild ?? {})[id] ?? [0, 0, 0]) as [number, number, number]])
     )
     let cardIdx  = 0
 
@@ -36,6 +69,8 @@ function showLoadout(baseClass: PlayerClass, customCardIds?: string[], initialBu
     const hex = (n: number) => '#' + n.toString(16).padStart(6, '0')
 
     function render() {
+      const cardIds = visibleCardIds()
+      cardIdx = Math.min(cardIdx, cardIds.length - 1)
       const selId  = cardIds[cardIdx]
       const selDef = CARD_DATA[selId]
       if (!selDef) return
@@ -81,18 +116,42 @@ function showLoadout(baseClass: PlayerClass, customCardIds?: string[], initialBu
         </div>`
       }).join('')
 
+      const techniqueOptions = ['overload', formTechnique].map(id => {
+        const d = CARD_DATA[id]
+        const selected = id === techniqueCard
+        return `<button class="lo-tech-option${selected ? ' sel' : ''}" data-technique="${id}" style="--tc:${hex(d.color)}" aria-pressed="${selected}">
+          <span class="lo-tech-icon">${d.icon}</span>
+          <span class="lo-tech-copy"><b>${d.name}</b><small>${TECHNIQUE_COPY[id]}</small></span>
+          <span class="lo-tech-count">x2</span>
+        </button>`
+      }).join('')
+
       overlay.innerHTML = `
         <div class="lo-head">
-          <div class="lo-title">SET YOUR HAND</div>
-          <div class="lo-subtitle">${CLASS_CONFIGS[baseClass].displayName.toUpperCase()} · ⬡ ${progression.state.fragments} frags · ${cardIds.length} cards</div>
+        <div class="lo-title">PACK THE POUCH</div>
+          <div class="lo-subtitle">${CLASS_CONFIGS[baseClass].displayName.toUpperCase()} · ⬡ ${progression.state.fragments} FRAGS · ${cardIds.length} FAMILIES</div>
+        </div>
+        <div class="lo-technique" role="group" aria-label="Technique pair">
+          <span class="lo-tech-label">TECHNIQUE PAIR</span>
+          <div class="lo-tech-options">${techniqueOptions}</div>
         </div>
         <div class="lo-grid">${tiles}</div>
         <div class="lo-detail" style="--cc:${hex(selDef.color)}">
           <div class="lo-detail-head"><span class="lo-detail-icon">${selDef.icon}</span>${selDef.name}</div>
           <div class="lo-tcards">${tcards}</div>
         </div>
-        <button class="lo-fight">FACE THE MARK →</button>
+        <button class="lo-fight">BREAK THE SEAL →</button>
       `
+
+      overlay.querySelectorAll<HTMLButtonElement>('.lo-tech-option').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const next = btn.dataset.technique!
+          if (next === techniqueCard) return
+          techniqueCard = next
+          cardIdx = visibleCardIds().indexOf(next)
+          render()
+        })
+      })
 
       overlay.querySelectorAll<HTMLButtonElement>('.lo-tile').forEach(t => {
         const id = cardIds[parseInt(t.dataset.idx!)]
@@ -120,7 +179,7 @@ function showLoadout(baseClass: PlayerClass, customCardIds?: string[], initialBu
         hideCardPreview()
         overlay.classList.remove('visible')
         overlay.addEventListener('transitionend', () => overlay.remove(), { once: true })
-        resolve(build)
+        resolve({ build, techniqueCard })
       })
     }
 
@@ -169,34 +228,6 @@ function showEnemySelect(): Promise<number> {
   })
 }
 
-// Builds the per-encounter story hook: seed from saved state, play one compact beat,
-// then persist its choices so they can echo later in the run.
-function storyCtx(campaign: CampaignState, foe: string): StoryCtx {
-  if (!campaign.story) campaign.story = emptyStory()
-  const rings = Math.min(campaign.runNumber, 2) + progression.state.earnedRings.length
-  return { vars: { ...campaign.story.vars }, runNumber: campaign.runNumber, baseClass: campaign.baseClass, cycles: progression.state.cycles, rings, foe }
-}
-
-function makeStoryHook(campaign: CampaignState) {
-  return async (enemyName: string) => {
-    const beat = getBeat(enemyName)
-    if (!beat) return
-    const ctx = storyCtx(campaign, enemyName)
-    const out = await playBeat(beat, ctx, { flags: [...campaign.story.flags], picked: [...campaign.story.picked] })
-    campaign.story = { flags: out.flags, picked: out.picked, vars: ctx.vars }
-    saveCampaign(campaign)
-  }
-}
-
-// The death ceremony — the fallen form's last words to the foe that beat it. No
-// persistence: a defeat clears the campaign anyway.
-function makeDefeatHook(campaign: CampaignState) {
-  return async (enemyName: string) => {
-    const ctx = storyCtx(campaign, enemyName)
-    await playBeat(getDefeatBeat(), ctx, { flags: [...campaign.story.flags], picked: [...campaign.story.picked] })
-  }
-}
-
 // ── Title meld — the letters drift in from scattered 3D space and coalesce into
 // the title. Runs once after the root menu mounts; the menu preserves the card el
 // on back-navigation, so the assembled title persists without re-animating.
@@ -205,12 +236,15 @@ function meldInTitle() {
   if (!el || el.dataset.melded) return
   el.dataset.melded = '1'
 
-  const words = (el.textContent ?? 'MELD TO ALL HELD').trim().split(/\s+/)
+  const words = (el.textContent ?? 'MELD IN YOUR HAND').trim().split(/\s+/)
+  const lines = words.length === 4
+    ? [words.slice(0, 2).join(' '), words.slice(2).join(' ')]
+    : words
   el.textContent = ''
   el.classList.add('meld-3d')
 
   const letters: HTMLElement[] = []
-  for (const word of words) {
+  for (const word of lines) {
     const line = document.createElement('div')
     line.className = 'ms-line'
     for (const ch of word) {
@@ -264,11 +298,15 @@ export async function showTitle() {
   // ── Campaign run helper ─────────────────────────────────────────────────────
   async function startCampaignRun(campaign: CampaignState, resume?: { encounterIdx: number; playerHP: number; runFragments: number }) {
     const cardIds = [...new Set(campaign.deck.map(c => c.cardId))]
-    const build   = await showLoadout(campaign.baseClass, cardIds, campaign.build)
+    const choice  = await showLoadout(campaign.baseClass, cardIds, campaign.build, campaign.techniqueCard)
+    const { build, techniqueCard } = choice
+    campaign.deck = replaceTechniquePair(campaign.deck, campaign.techniqueCard, techniqueCard)
     campaign.build = build
+    campaign.techniqueCard = techniqueCard
     saveCampaign(campaign)
 
     const modifier = (campaign.runNumber === 0 || resume != null) ? null : await showModifierScreen()
+    if (!resume) await showCourtLetter(courtLetterForRun(campaign.runNumber))
     const { startBattle } = await battleModule
 
     trans.go(() => {
@@ -282,8 +320,6 @@ export async function showTitle() {
         startFrom:         resume?.encounterIdx ?? 0,
         startPlayerHP:     resume?.playerHP,
         startRunFragments: resume?.runFragments ?? 0,
-        onBeforeEncounter: makeStoryHook(campaign),
-        onDefeatBeat:      makeDefeatHook(campaign),
         isFirstRun:        campaign.runNumber === 0 && resume == null,
         tutorial:          campaign.runNumber === 0 && resume == null
           ? { enabled: true, signatureCard: CLASS_CONFIGS[campaign.baseClass].signatureCard, openingHand: CLASS_CONFIGS[campaign.baseClass].tutorialHand }
@@ -307,10 +343,14 @@ export async function showTitle() {
   // ── The 10th — Mirror finale ────────────────────────────────────────────────
   async function startMirrorBattle(campaign: CampaignState) {
     const cardIds = [...new Set(campaign.deck.map(c => c.cardId))]
-    const build   = await showLoadout(campaign.baseClass, cardIds, campaign.build)
+    const choice  = await showLoadout(campaign.baseClass, cardIds, campaign.build, campaign.techniqueCard)
+    const { build, techniqueCard } = choice
+    campaign.deck = replaceTechniquePair(campaign.deck, campaign.techniqueCard, techniqueCard)
     campaign.build = build
+    campaign.techniqueCard = techniqueCard
     saveCampaign(campaign)
 
+    await showCourtLetter(courtFinalMemorandum())
     const { startBattle } = await battleModule
     const mirror = makeMirror(campaign.baseClass, campaign.powerLevel ?? 1)
 
@@ -323,8 +363,6 @@ export async function showTitle() {
         modifier:    null,
         encounters:  [mirror],
         isFinale:    true,
-        onBeforeEncounter: makeStoryHook(campaign),
-        onDefeatBeat:      makeDefeatHook(campaign),
         powerLevel:  campaign.powerLevel ?? 1,
         classesIn:   campaign.classesIn,
         runNumber:   campaign.runNumber,
@@ -399,22 +437,22 @@ export async function showTitle() {
       { type: 'custom', html: `
         <div class="htp">
           <section class="htp-sec">
-            <div class="htp-hd"><span class="htp-gem"></span>CARDS</div>
+            <div class="htp-hd"><span class="htp-gem"></span>PIECES</div>
             <p>Play cards to <em>attack</em>, <em>defend</em>, or <em>heal</em>.</p>
             <p>Each costs <b>1–2&nbsp;AP</b>. You draw <b>3&nbsp;AP</b> of intent a turn.</p>
             <p>Spare AP becomes <b>bonus draws</b> next turn — never waste it.</p>
           </section>
           <section class="htp-sec">
-            <div class="htp-hd"><span class="htp-gem"></span>MELDING</div>
-            <p>Two of a card <span class="htp-arr">→</span> <span class="htp-meld">MELD</span> <span class="htp-arr">→</span> Tier&nbsp;II <span class="htp-x">2.2×</span></p>
+            <div class="htp-hd"><span class="htp-gem"></span>FUSING</div>
+            <p>Two matching pieces <span class="htp-arr">→</span> <span class="htp-meld">MELD</span> <span class="htp-arr">→</span> Tier&nbsp;II <span class="htp-x">2.2×</span></p>
             <p>Two Tier&nbsp;IIs <span class="htp-arr">→</span> Tier&nbsp;III <span class="htp-x">4.5×</span></p>
             <p>Melded cards discard, then cycle back to your hand.</p>
           </section>
           <section class="htp-sec">
-            <div class="htp-hd"><span class="htp-gem"></span>THE JOURNEY</div>
-            <p>Three runs. Three marks each. Then your <em>Echo</em>.</p>
-            <p>Between runs: <em>deepen</em> your form, or <em>absorb</em> another.</p>
-            <p class="htp-goal">Return to the Meld. That is the goal.</p>
+            <div class="htp-hd"><span class="htp-gem"></span>THE FRONT</div>
+            <p>Three bags. Three Candy seals each. Then <em>The Original</em>.</p>
+            <p>Between bags: press your flavor deeper, or mix in another.</p>
+            <p class="htp-goal">Candy calls you one of them. Do not give it the proof.</p>
           </section>
         </div>
       ` },
@@ -424,18 +462,18 @@ export async function showTitle() {
   }
 
   menus.push({
-    title: 'MELD TO ALL HELD',
+    title: 'MELD IN YOUR HAND',
     backdrop: 'none',
     closeable: false,
     className: 'meld-title',
     items: [
-      { type: 'header', label: 'RETURN TO THE MELD' },
+      { type: 'header', label: 'REALISTIC FRUIT SNACK SIM' },
       { type: 'separator' },
-      ...(saved ? [{ type: 'button' as const, label: 'RETURN TO THE RUN', action: () => {
+      ...(saved ? [{ type: 'button' as const, label: 'RETURN TO THE BAG', action: () => {
         titleScene?.dispose(); menus.close()
         void startCampaignRun(saved)
       } }] : []),
-      { type: 'button', label: saved ? 'START UNHELD' : 'ENTER THE ARENA', action: () => beginJourney() },
+      { type: 'button', label: saved ? 'OPEN ANOTHER BAG' : 'OPEN THE BAG', action: () => beginJourney() },
       { type: 'button', label: 'COLLECTION',     action: async () => { await showShop() } },
       { type: 'button', label: 'HOW TO PLAY',    action: () => menus.push(howToPlay) },
       { type: 'button', label: 'SETTINGS',       action: () => menus.push(settingsMenu) },
@@ -454,23 +492,12 @@ export async function showTitle() {
     meldInTitle()
   }
 
-  function runHeraldIntro(): Promise<void> {
-    return new Promise(resolve => {
-      const runner = createDialogueRunner<IntroCtx>()
-      const box    = createDialogueBox(runner, { typewriterSpeed: 58 })
-      const ctx: IntroCtx = { class: 'warrior' }
-      runner.on('end', () => { box.dispose(); resolve() })
-      runner.start(INTRO, ctx)
-    })
-  }
-
   async function beginJourney() {
     titleScene?.dispose()
     menus.close()
     clearCheckpoint()
     clearCampaign()
     const isReturning = progression.state.runsCompleted > 0
-    if (!isReturning) await runHeraldIntro()
     const cls = await showClassSelect({ mode: isReturning ? 'returning' : 'first-run' })
     const campaign = newCampaign(cls)
     await startCampaignRun(campaign)

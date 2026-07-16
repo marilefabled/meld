@@ -6,12 +6,12 @@ describe('getVariant', () => {
     const def = CARD_DATA.strike
     const v = getVariant(def, 1, DEFAULT_BUILD, 'strike')
     expect(v.value).toBe(6)
-    expect(v.name).toBe('Mark')
+    expect(v.name).toBe('Tug')
   })
   it('returns alt variant when build selects index 1', () => {
     const def = CARD_DATA.strike
     const v = getVariant(def, 1, { strike: [1, 0, 0] }, 'strike')
-    expect(v.name).toBe('Open')
+    expect(v.name).toBe('Split')
     expect(v.value).toBe(4)
     expect(v.status?.kind).toBe('vulnerable')
   })
@@ -57,5 +57,34 @@ describe('makeCard', () => {
   })
   it('defaults to tier 1', () => {
     expect(makeCard('slash').tier).toBe(1)
+  })
+})
+
+describe('technique cards', () => {
+  it('Counter guards while exposing the enemy', () => {
+    const card = CARD_DATA.counter
+    expect(card.type).toBe('defend')
+    expect(card.shape).toBe('counter')
+    expect(card.variants.map(tier => tier[0].value)).toEqual([0, 1, 2])
+    expect(card.variants.map(tier => tier[0].retaliate)).toEqual([4, 9, 18])
+    expect(card.variants.map(tier => tier[0].selfDamage)).toEqual([1, 2, 3])
+    expect(card.variants.map(tier => tier[0].status?.kind)).toEqual(['vulnerable', 'vulnerable', 'vulnerable'])
+  })
+
+  it('Fuse deals setup damage and scales its opening', () => {
+    const card = CARD_DATA.fuse
+    expect(card.type).toBe('attack')
+    expect(card.shape).toBe('fuse')
+    expect(card.variants.map(tier => tier[0].value)).toEqual([1, 2, 5])
+    expect(card.variants.map(tier => tier[0].status?.stacks)).toEqual([1, 1, 1])
+  })
+
+  it('Leech trades immediate force for healing and poison', () => {
+    const card = CARD_DATA.leech
+    expect(card.type).toBe('attack')
+    expect(card.shape).toBe('leech')
+    expect(card.variants.map(tier => tier[0].value)).toEqual([5, 12, 24])
+    expect(card.variants.map(tier => tier[0].heal)).toEqual([1, 1, 1])
+    expect(card.variants.map(tier => tier[0].status?.stacks)).toEqual([1, 1, 1])
   })
 })

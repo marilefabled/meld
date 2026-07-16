@@ -8,7 +8,7 @@
 // rings, orbital arcs. Each card type has a distinct geometric identity.
 
 export type IconShape =
-  | 'strike' | 'slash' | 'fireball' | 'overload' | 'absorb' | 'ward'
+  | 'strike' | 'slash' | 'fireball' | 'overload' | 'counter' | 'fuse' | 'leech' | 'absorb' | 'ward'
   | 'vulnerable' | 'poison' | 'weak' | 'hp' | 'cascade' | 'efficiency'
 
 let _id = 0
@@ -71,6 +71,45 @@ function iconOverload(c: string): string {
       fill="none" stroke-linecap="round" stroke-linejoin="round" opacity="0.92"/>
     <path d="${d}" stroke="#fff" stroke-width="2"
       fill="none" stroke-linecap="round" stroke-linejoin="round" opacity="0.45"/>
+  `
+}
+
+// Two opposing arcs meeting at a bright hinge — force caught and turned back.
+function iconCounter(c: string): string {
+  return `
+    <path d="M 7 27 A 14 14 0 0 1 20 7" stroke="${c}" stroke-width="4.5"
+      fill="none" stroke-linecap="round" opacity="0.9"/>
+    <path d="M 33 27 A 14 14 0 0 0 20 7" stroke="${c}" stroke-width="4.5"
+      fill="none" stroke-linecap="round" opacity="0.55"/>
+    <path d="M 11 23 L 7 27 L 12 30" stroke="#fff" stroke-width="1.8"
+      fill="none" stroke-linecap="round" stroke-linejoin="round" opacity="0.72"/>
+    <path d="M 29 23 L 33 27 L 28 30" stroke="#fff" stroke-width="1.8"
+      fill="none" stroke-linecap="round" stroke-linejoin="round" opacity="0.45"/>
+    <circle cx="20" cy="8" r="3.4" fill="${c}"/>
+    <circle cx="20" cy="8" r="1.4" fill="#fff" opacity="0.92"/>
+  `
+}
+
+// Three charged nodes wired into one ignition point.
+function iconFuse(c: string): string {
+  return `
+    <path d="M 9 10 L 20 20 L 31 10 M 20 20 L 20 32"
+      stroke="${c}" stroke-width="2.5" fill="none" stroke-linecap="round" opacity="0.62"/>
+    <circle cx="9" cy="10" r="4" fill="${c}" opacity="0.78"/>
+    <circle cx="31" cy="10" r="4" fill="${c}" opacity="0.78"/>
+    <circle cx="20" cy="32" r="4" fill="${c}" opacity="0.78"/>
+    <circle cx="20" cy="20" r="6" fill="${c}"/>
+    <circle cx="20" cy="20" r="2.3" fill="#fff" opacity="0.95"/>
+  `
+}
+
+// Paired crescents pull toward a central drop — harm drawn inward as life.
+function iconLeech(c: string): string {
+  return `
+    <path d="M 8 10 C 8 24 13 31 20 32 C 15 27 14 19 16 11 Z" fill="${c}" opacity="0.8"/>
+    <path d="M 32 10 C 32 24 27 31 20 32 C 25 27 26 19 24 11 Z" fill="${c}" opacity="0.48"/>
+    <path d="M 20 10 C 24 16 25 20 20 24 C 15 20 16 16 20 10 Z" fill="#fff" opacity="0.68"/>
+    <circle cx="20" cy="31" r="3.2" fill="${c}"/>
   `
 }
 
@@ -170,6 +209,9 @@ const SYMBOLS: Record<IconShape, (c: string) => string> = {
   slash:       iconSlash,
   fireball:    iconFireball,
   overload:    iconOverload,
+  counter:     iconCounter,
+  fuse:        iconFuse,
+  leech:       iconLeech,
   absorb:      iconAbsorb,
   ward:        iconWard,
   vulnerable:  iconVulnerable,
@@ -248,6 +290,25 @@ export function cardArt(shape: IconShape, color: number, type: 'attack' | 'defen
         const a = (i / 6) * TAU + 0.4
         return `<polyline points="${P(a, 13)} ${P(a + 0.2, 24)} ${P(a - 0.05, 34)}" stroke="${c}" stroke-width="1.3" fill="none" stroke-linejoin="round" stroke-linecap="round" opacity="${(0.16 + ((i * 2) % 3) * 0.06).toFixed(2)}"/>`
       }).join('')
+      break
+    case 'counter':  // paired parabolic shields redirecting into a hinge
+      motif = Array.from({ length: 4 }, (_, i) => {
+        const inset = i * 5
+        return `<path d="M ${10 + inset} ${54 - inset * 0.35} Q 50 ${5 + inset * 0.45} ${90 - inset} ${54 - inset * 0.35}" fill="none" stroke="${c}" stroke-width="${(2.2 - i * 0.32).toFixed(1)}" opacity="${(0.3 - i * 0.045).toFixed(2)}"/>`
+      }).join('') + `<circle cx="50" cy="16" r="4.5" fill="${c}" opacity="0.35"/><circle cx="50" cy="16" r="1.8" fill="#fff" opacity="0.7"/>`
+      break
+    case 'fuse':     // charged nodes and leads collapsing into one detonation
+      motif = Array.from({ length: 6 }, (_, i) => {
+        const a = (i / 6) * TAU - Math.PI / 2
+        const outer = P(a, 34), inner = P(a + 0.13, 9)
+        return `<line x1="${outer.split(',')[0]}" y1="${outer.split(',')[1]}" x2="${inner.split(',')[0]}" y2="${inner.split(',')[1]}" stroke="${c}" stroke-width="1.4" opacity="0.22"/><circle cx="${outer.split(',')[0]}" cy="${outer.split(',')[1]}" r="3.1" fill="${c}" opacity="0.24"/>`
+      }).join('') + `<circle cx="${cx}" cy="${cy}" r="10" fill="none" stroke="${c}" stroke-width="2" opacity="0.36"/><circle cx="${cx}" cy="${cy}" r="4" fill="#fff" opacity="0.36"/>`
+      break
+    case 'leech':    // two currents spiral inward around a suspended drop
+      motif = Array.from({ length: 4 }, (_, i) => {
+        const r = 14 + i * 5
+        return `<path d="M ${P(2.7 + i * 0.08, r)} Q ${35 - i * 2} ${8 + i * 2} ${P(5.7 - i * 0.08, r)}" fill="none" stroke="${c}" stroke-width="${(2.4 - i * 0.35).toFixed(1)}" stroke-linecap="round" opacity="${(0.3 - i * 0.045).toFixed(2)}"/>`
+      }).join('') + `<path d="M 50 16 C 57 26 58 34 50 41 C 42 34 43 26 50 16 Z" fill="${c}" opacity="0.2"/>`
       break
     case 'absorb':   // concentric protective rings drawn inward
       motif = Array.from({ length: 5 }, (_, i) =>

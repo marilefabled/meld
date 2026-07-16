@@ -1,8 +1,9 @@
 import { showTitle } from './title.js'
 import { initPauseMenu } from './screens/pauseMenu.js'
-import { emptyStory } from './data/campaign.js'
 import { showRewardScreen } from './screens/rewardScreen.js'
 import { showEvolutionScreen } from './screens/evolutionScreen.js'
+import { courtLetterForRun } from './data/courtLetters.js'
+import { showCourtLetter } from './screens/courtLetterScreen.js'
 
 function showCaptureScreen(kind: string): boolean {
   if (kind === 'reward') {
@@ -10,8 +11,9 @@ function showCaptureScreen(kind: string): boolean {
       encIdx: 0,
       build: {},
       playerClass: 'warrior',
-      enemyName: 'First Scar',
+      enemyName: 'The Crimp',
       enemyTraits: [{ kind: 'immune', statuses: ['poison', 'vulnerable', 'weak'] }],
+      rivalLine: 'Keep the word fruit. We will keep the factories.',
     })
     return true
   }
@@ -22,10 +24,15 @@ function showCaptureScreen(kind: string): boolean {
       baseClass: 'warrior',
       deck: [],
       build: {},
+      techniqueCard: 'overload',
       classesIn: ['warrior'],
       powerLevel: 1,
-      story: emptyStory(),
     })
+    return true
+  }
+
+  if (kind === 'letter') {
+    void showCourtLetter(courtLetterForRun(0))
     return true
   }
 

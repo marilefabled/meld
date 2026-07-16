@@ -7,19 +7,21 @@ export interface ClassConfig {
   role: string
   flavor: string
   signatureCard: string
+  techniqueCard: string
   tutorialHand: string[]
   deckPreview: string
 }
 
 export const CLASS_CONFIGS: Record<PlayerClass, ClassConfig> = {
   warrior: {
-    displayName: 'Vow-Bound',
+    displayName: 'Cherry Brick',
     hp: 70,
-    role: 'ANCHOR',
-    flavor: 'A promise with teeth. One clean cut must matter.',
+    role: 'DENSE',
+    flavor: 'Pressed red fruit. It remembers impact.',
     signatureCard: 'strike',
+    techniqueCard: 'counter',
     tutorialHand: ['strike', 'strike', 'block', 'ward'],
-    deckPreview: 'Oathcut pairs. Shell and Hush blunt the answer.',
+    deckPreview: 'Cherry Pull pairs. Rind and Stillness buy time.',
     deck: [
       'strike', 'strike', 'strike', 'strike',
       'slash', 'slash',
@@ -29,13 +31,14 @@ export const CLASS_CONFIGS: Record<PlayerClass, ClassConfig> = {
     ],
   },
   mage: {
-    displayName: 'Cinder-Seer',
+    displayName: 'Citrus Burst',
     hp: 55,
-    role: 'PYRE',
-    flavor: 'Fragile body. Violent answer.',
+    role: 'POP',
+    flavor: 'A bright pocket of pressure with nowhere safe to go.',
     signatureCard: 'fireball',
+    techniqueCard: 'fuse',
     tutorialHand: ['fireball', 'fireball', 'block', 'ward'],
-    deckPreview: 'Cinder floods. Enough heat to outrun healing.',
+    deckPreview: 'Citrus Pop floods. Burst before the refill.',
     deck: [
       'fireball', 'fireball', 'fireball', 'fireball', 'fireball', 'fireball',
       'overload', 'overload',
@@ -44,13 +47,14 @@ export const CLASS_CONFIGS: Record<PlayerClass, ClassConfig> = {
     ],
   },
   rogue: {
-    displayName: 'Needle-Saint',
+    displayName: 'Sour Ribbon',
     hp: 60,
-    role: 'VENOM',
-    flavor: 'Small cuts. Long consequence. Armor hates patience.',
+    role: 'ZING',
+    flavor: 'A thin sour seam that stays under the seal.',
     signatureCard: 'slash',
+    techniqueCard: 'leech',
     tutorialHand: ['slash', 'slash', 'block', 'ward'],
-    deckPreview: 'Needle pairs. Poison works through armor.',
+    deckPreview: 'Sour Thread pairs. Zing slips through rind.',
     deck: [
       'slash', 'slash', 'slash', 'slash', 'slash', 'slash',
       'overload', 'overload',
