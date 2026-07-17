@@ -19,6 +19,8 @@ import { canToggleHold } from './engine/hold.js'
 import { bigCardHTML, showCardPreview, hideCardPreview } from './view/cardPreview.js'
 import { showRewardScreen, type Reward } from './screens/rewardScreen.js'
 import { showRivalOpening } from './screens/rivalDialogue.js'
+import { bountyFor } from './data/bounties.js'
+import { showBountyPoster } from './screens/bountyPosterScreen.js'
 import { progression } from './data/progression.js'
 import { saveCheckpoint, clearCheckpoint } from './data/campaign.js'
 import { buildTutorialOpeningDeck, type BattleTutorialConfig } from './data/tutorial.js'
@@ -1763,7 +1765,19 @@ export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom 
         releaseBattle()
       }
     }
-    void showRivalOpening(candyRivalFor(def)).then(beginBattle)
+    // Paper first, then the target speaks: the Front's bounty goes up, then Candy
+    // answers it. Reward mirrors what breaking this seal actually pays (see below).
+    const poster = bountyFor(def, {
+      sealNo: isFinale ? null : idx + 1,
+      reward: idx < encounters.length - 1 ? 10 : 25,
+    })
+    void showBountyPoster(poster, {
+      visual:      isFinale ? 'original' : def.visual,
+      bodyColor:   def.bodyColor,
+      accentColor: def.accentColor,
+    })
+      .then(() => showRivalOpening(candyRivalFor(def)))
+      .then(beginBattle)
   }
 
   // The authored candy units enter according to how they are manufactured.

@@ -16,8 +16,6 @@ import { showEvolutionScreen } from './screens/evolutionScreen.js'
 import { showModifierScreen } from './screens/modifierScreen.js'
 import { showShop } from './screens/shopScreen.js'
 import { showCampaignComplete } from './screens/campaignCompleteScreen.js'
-import { courtFinalMemorandum, courtLetterForRun } from './data/courtLetters.js'
-import { showCourtLetter } from './screens/courtLetterScreen.js'
 import { createUnitPreview } from './view/unitPreview.js'
 
 // ── Loadout screen ────────────────────────────────────────────────────────────
@@ -327,7 +325,6 @@ export async function showTitle() {
     saveCampaign(campaign)
 
     const modifier = (campaign.runNumber === 0 || resume != null) ? null : await showModifierScreen()
-    if (!resume) await showCourtLetter(courtLetterForRun(campaign.runNumber))
     const { startBattle } = await battleModule
 
     trans.go(() => {
@@ -372,7 +369,6 @@ export async function showTitle() {
     campaign.techniqueCard = techniqueCard
     saveCampaign(campaign)
 
-    await showCourtLetter(courtFinalMemorandum())
     const { startBattle } = await battleModule
     const mirror = makeMirror(campaign.baseClass, campaign.powerLevel ?? 1)
 

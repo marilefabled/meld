@@ -2,8 +2,8 @@ import { showTitle } from './title.js'
 import { initPauseMenu } from './screens/pauseMenu.js'
 import { showRewardScreen } from './screens/rewardScreen.js'
 import { showEvolutionScreen } from './screens/evolutionScreen.js'
-import { courtLetterForRun } from './data/courtLetters.js'
-import { showCourtLetter } from './screens/courtLetterScreen.js'
+import { bountyFor } from './data/bounties.js'
+import { showBountyPoster } from './screens/bountyPosterScreen.js'
 import { showUnitLab } from './view/unitLab.js'
 import { ENCOUNTERS } from './data/encounters.js'
 
@@ -49,8 +49,13 @@ function showCaptureScreen(kind: string): boolean {
     return true
   }
 
-  if (kind === 'letter') {
-    void showCourtLetter(courtLetterForRun(0))
+  if (kind === 'bounty') {
+    const target = ENCOUNTERS[0]
+    void showBountyPoster(bountyFor(target, { sealNo: 1, reward: 10 }), {
+      visual:      target.visual,
+      bodyColor:   target.bodyColor,
+      accentColor: target.accentColor,
+    })
     return true
   }
 
