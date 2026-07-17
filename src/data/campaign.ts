@@ -193,3 +193,21 @@ export function loadCheckpoint(): RunCheckpoint | null {
 export function clearCheckpoint() {
   localStorage.removeItem(CHECKPOINT_KEY)
 }
+
+// Set right before an internal location.reload() that should carry the campaign
+// forward instead of stopping at the title. Session-scoped on purpose: a reload
+// keeps it, a fresh tab or app launch does not — so opening the game always
+// lands on the title screen, and only mid-campaign transitions skip past it.
+const CONTINUE_KEY = 'meld_continue_v1'
+
+export function markContinue() {
+  try { sessionStorage.setItem(CONTINUE_KEY, '1') } catch {}
+}
+
+export function takeContinue(): boolean {
+  try {
+    const on = sessionStorage.getItem(CONTINUE_KEY) === '1'
+    sessionStorage.removeItem(CONTINUE_KEY)
+    return on
+  } catch { return false }
+}

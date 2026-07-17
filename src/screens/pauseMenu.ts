@@ -1,4 +1,3 @@
-import { clearCampaign } from '../data/campaign.js'
 import { settings } from '../settings.js'
 import { music } from '../music.js'
 
@@ -63,8 +62,9 @@ export function initPauseMenu() {
 
   resume.addEventListener('click', () => close())
 
+  // No continue flag, so the reload stops at the title. The run stays saved —
+  // RETURN TO THE BAG picks it back up from the last checkpoint.
   toTitle.addEventListener('click', () => {
-    clearCampaign()
     location.reload()
   })
 

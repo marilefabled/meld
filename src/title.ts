@@ -10,7 +10,7 @@ import { bigCardHTML, showCardPreview, hideCardPreview } from './view/cardPrevie
 import { CLASS_CONFIGS, type PlayerClass } from './data/classes.js'
 import type { MenuDef } from './engine/menu.js'
 import { progression } from './data/progression.js'
-import { loadCampaign, saveCampaign, clearCampaign, newCampaign, applyEvolution, replaceTechniquePair, TOTAL_RUNS, loadCheckpoint, clearCheckpoint, type CampaignState } from './data/campaign.js'
+import { loadCampaign, saveCampaign, clearCampaign, newCampaign, applyEvolution, replaceTechniquePair, TOTAL_RUNS, loadCheckpoint, clearCheckpoint, markContinue, takeContinue, type CampaignState } from './data/campaign.js'
 import { showClassSelect } from './screens/classSelectScreen.js'
 import { showEvolutionScreen } from './screens/evolutionScreen.js'
 import { showModifierScreen } from './screens/modifierScreen.js'
@@ -351,6 +351,7 @@ export async function showTitle() {
         onVictory: () => {
           campaign.runNumber++
           saveCampaign(campaign)
+          markContinue()   // reload straight into the evolution step, not the title
           location.reload()
         },
         onDefeat: () => {
@@ -407,23 +408,34 @@ export async function showTitle() {
   const saved = loadCampaign()
   const cp    = loadCheckpoint()
 
-  // Mid-run checkpoint: resume at the saved encounter with saved HP
-  if (saved && cp && cp.campaignRunNumber === saved.runNumber) {
-    await startCampaignRun(saved, { encounterIdx: cp.encounterIdx, playerHP: cp.playerHP, runFragments: cp.runFragments })
-    return
+  // Where a saved campaign picks back up.
+  async function continueSaved(campaign: CampaignState) {
+    // Mid-run checkpoint: resume at the saved encounter with saved HP
+    if (cp && cp.campaignRunNumber === campaign.runNumber) {
+      await startCampaignRun(campaign, { encounterIdx: cp.encounterIdx, playerHP: cp.playerHP, runFragments: cp.runFragments })
+      return
+    }
+    if (campaign.runNumber >= TOTAL_RUNS) {
+      // All 3 runs cleared — the 10th opponent, your Mirror, is the finale (no evolution).
+      await startMirrorBattle(campaign)
+      return
+    }
+    if (campaign.runNumber > 0) {
+      // Between runs — evolve, then the next gauntlet.
+      const choice  = await showEvolutionScreen(campaign)
+      const evolved = applyEvolution(campaign, choice)
+      saveCampaign(evolved)
+      await startCampaignRun(evolved)
+      return
+    }
+    await startCampaignRun(campaign)
   }
 
-  if (saved && saved.runNumber >= TOTAL_RUNS) {
-    // All 3 runs cleared — the 10th opponent, your Mirror, is the finale (no evolution).
-    await startMirrorBattle(saved)
-    return
-  }
-  if (saved && saved.runNumber > 0) {
-    // Between runs — evolve, then the next gauntlet.
-    const choice  = await showEvolutionScreen(saved)
-    const evolved = applyEvolution(saved, choice)
-    saveCampaign(evolved)
-    await startCampaignRun(evolved)
+  // Only a mid-campaign reload resumes on its own; loading the game fresh always
+  // stops at the title, where RETURN TO THE BAG picks the run back up.
+  const continuing = takeContinue()
+  if (saved && continuing) {
+    await continueSaved(saved)
     return
   }
 
@@ -492,7 +504,7 @@ export async function showTitle() {
       { type: 'separator' },
       ...(saved ? [{ type: 'button' as const, label: 'RETURN TO THE BAG', action: () => {
         titleScene?.dispose(); menus.close()
-        void startCampaignRun(saved)
+        void continueSaved(saved)
       } }] : []),
       { type: 'button', label: saved ? 'OPEN ANOTHER BAG' : 'OPEN THE BAG', action: () => beginJourney() },
       { type: 'button', label: 'COLLECTION',     action: async () => { await showShop() } },
