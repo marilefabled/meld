@@ -1,6 +1,15 @@
 import * as THREE from 'three'
 import type { PlayerClass } from '../data/classes.js'
 import type { RingPath } from '../data/progression.js'
+import type { UnitRegalia, UnitVisual } from '../data/visuals.js'
+import {
+  buildAuthoredUnitArt,
+  disposeAuthoredUnitArt,
+  poseAuthoredUnit,
+  resetAuthoredUnitPose,
+  updateAuthoredUnitArt,
+} from './units/registry.js'
+import type { AuthoredUnitRuntime, UnitPose } from './units/types.js'
 
 // ── The Meld Form — a luminous core with held orbital rings, and an eye ───────
 // A form is not a body: it's a glowing core, two orbiting rings (the held aspects
@@ -51,8 +60,14 @@ export interface Unit {
   _ringB:    THREE.Mesh                   // ring mesh inside armR
   _extra:    THREE.Object3D[]             // form-specific feature meshes (disposed on re-form)
   _eyePhase: number                       // per-unit blink/drift phase
+  _eyeScale: THREE.Vector3                // identity-specific resting eye proportions
   _bodyScale: THREE.Vector3               // form's resting core scale (so hit-squash restores it)
   _trophyPivot: THREE.Group               // persistent earned trophy rings (slowly revolves)
+  _identityPivot: THREE.Group             // snack-specific silhouette detail, independent of combat form
+  _regaliaPivot: THREE.Group              // doctrine-specific battlefield trim, independent of combat form
+  _authoredRuntime: AuthoredUnitRuntime | null
+  identity: UnitVisual
+  regalia: UnitRegalia
 }
 
 // Player class → form, enemy archetype trait → form. Kept here so callers map cleanly.
@@ -86,12 +101,20 @@ function petal(geo: THREE.BufferGeometry, mat: THREE.Material, angle: number, le
 // feature meshes, and eye placement. Materials are preserved (so recolouring an
 // enemy via bodyMat/accentMat still works across a form change).
 export function setForm(unit: Unit, form: FormKind) {
+  if (unit._authoredRuntime) {
+    disposeAuthoredUnitArt(unit._authoredRuntime)
+    unit._authoredRuntime = null
+  }
   unit.form = form
   disposeExtras(unit)
   unit.body.geometry.dispose()
   unit.body.scale.set(1, 1, 1)   // reset; forms below re-stretch if they want to
 
   const { bodyMat, accentMat, body, armL, armR } = unit
+  bodyMat.roughness = 0.22; bodyMat.metalness = 0.12
+  bodyMat.transparent = false; bodyMat.opacity = 1; bodyMat.depthWrite = true
+  accentMat.roughness = 0.12; accentMat.metalness = 0.65
+  unit.head.visible = true
   let eyeZ = 0.4      // where the eye sits on the core front (local +Z)
   let eyeScale = 1
 
@@ -193,6 +216,7 @@ export function setForm(unit: Unit, form: FormKind) {
 
   unit.eye.position.set(0, 0.04, eyeZ)
   unit.eye.scale.setScalar(eyeScale)
+  unit._eyeScale.copy(unit.eye.scale)
   unit._bodyScale.copy(unit.body.scale)   // remember resting stretch for hit-squash restore
   unit._ringA.visible = true              // rings shown by default (enemies); the player
   unit._ringB.visible = true              // gates these by run progress in setPlayerForm
@@ -235,6 +259,12 @@ export function buildUnit(color: number, accent: number, form: FormKind = 'orb')
   const trophyPivot = new THREE.Group(); trophyPivot.position.y = CORE_Y
   group.add(trophyPivot)
 
+  const identityPivot = new THREE.Group(); identityPivot.position.y = CORE_Y
+  group.add(identityPivot)
+
+  const regaliaPivot = new THREE.Group(); regaliaPivot.position.y = CORE_Y
+  group.add(regaliaPivot)
+
   // ── Eye (parented to body so it moves & squashes with the core) ────────────
   const eye = new THREE.Group()
   const eyeMat = new THREE.MeshStandardMaterial({
@@ -257,12 +287,351 @@ export function buildUnit(color: number, accent: number, form: FormKind = 'orb')
     bodyMat, accentMat, visorMat: accentMat,
     eye, pupil, eyeMat, pupilMat, form,
     _ringA: ringA, _ringB: ringB, _extra: [], _eyePhase: 0,
+    _eyeScale: new THREE.Vector3(1, 1, 1),
     _bodyScale: new THREE.Vector3(1, 1, 1),
     _trophyPivot: trophyPivot,
+    _identityPivot: identityPivot,
+    _regaliaPivot: regaliaPivot,
+    _authoredRuntime: null,
+    identity: 'none',
+    regalia: 'none',
   }
 
   setForm(unit, form)
   return unit
+}
+
+function disposeIdentity(unit: Unit) {
+  const geometries = new Set<THREE.BufferGeometry>()
+  const materials = new Set<THREE.Material>()
+  const identityMaterials = unit._identityPivot.userData.identityMaterials as THREE.Material[] | undefined
+  for (const material of identityMaterials ?? []) materials.add(material)
+  unit._identityPivot.traverse(node => {
+    if (!(node instanceof THREE.Mesh)) return
+    geometries.add(node.geometry)
+    const meshMaterials = Array.isArray(node.material) ? node.material : [node.material]
+    for (const material of meshMaterials) {
+      if (material !== unit.bodyMat && material !== unit.accentMat) materials.add(material)
+    }
+  })
+  unit._identityPivot.clear()
+  delete unit._identityPivot.userData.identityMaterials
+  geometries.forEach(geometry => geometry.dispose())
+  materials.forEach(material => material.dispose())
+}
+
+function disposeRegalia(unit: Unit) {
+  const geometries = new Set<THREE.BufferGeometry>()
+  const materials = new Set<THREE.Material>()
+  const regaliaMaterials = unit._regaliaPivot.userData.regaliaMaterials as THREE.Material[] | undefined
+  for (const material of regaliaMaterials ?? []) materials.add(material)
+  unit._regaliaPivot.traverse(node => {
+    if (!(node instanceof THREE.Mesh)) return
+    geometries.add(node.geometry)
+    const meshMaterials = Array.isArray(node.material) ? node.material : [node.material]
+    for (const material of meshMaterials) materials.add(material)
+  })
+  unit._regaliaPivot.clear()
+  delete unit._regaliaPivot.userData.regaliaMaterials
+  geometries.forEach(geometry => geometry.dispose())
+  materials.forEach(material => material.dispose())
+}
+
+function identityMaterial(color: number, options: { metalness?: number; roughness?: number; glow?: number } = {}) {
+  return new THREE.MeshStandardMaterial({
+    color,
+    emissive: color,
+    emissiveIntensity: options.glow ?? 0.16,
+    metalness: options.metalness ?? 0.12,
+    roughness: options.roughness ?? 0.28,
+  })
+}
+
+function identityMesh(
+  root: THREE.Object3D,
+  geometry: THREE.BufferGeometry,
+  material: THREE.Material,
+  position: [number, number, number],
+  rotation: [number, number, number] = [0, 0, 0],
+  scale: [number, number, number] = [1, 1, 1],
+) {
+  const mesh = new THREE.Mesh(geometry, material)
+  mesh.position.set(...position)
+  mesh.rotation.set(...rotation)
+  mesh.scale.set(...scale)
+  mesh.castShadow = true
+  root.add(mesh)
+  return mesh
+}
+
+function identityTube(root: THREE.Object3D, points: [number, number, number][], radius: number, material: THREE.Material) {
+  const curve = new THREE.CatmullRomCurve3(points.map(point => new THREE.Vector3(...point)), false, 'centripetal')
+  return identityMesh(root, new THREE.TubeGeometry(curve, 32, radius, 7, false), material, [0, 0, 0])
+}
+
+function addCrimpedEnds(root: THREE.Object3D, material: THREE.Material, spread = 0.5) {
+  const endGeo = new THREE.ConeGeometry(0.19, 0.32, 4)
+  for (const side of [-1, 1]) {
+    identityMesh(root, endGeo, material, [side * spread, 0, -0.04], [0, 0, side * Math.PI / 2], [1, 0.72, 0.3])
+  }
+}
+
+export function setUnitIdentity(unit: Unit, identity: UnitVisual) {
+  if (unit._authoredRuntime) setForm(unit, unit.form)
+  disposeIdentity(unit)
+  unit.identity = identity
+
+  const authored = buildAuthoredUnitArt(unit, identity)
+  if (authored) {
+    disposeExtras(unit)
+    unit._authoredRuntime = authored
+    unit._bodyScale.copy(unit.body.scale)
+    unit._eyeScale.copy(unit.eye.scale)
+    return
+  }
+
+  const root = unit._identityPivot
+  const { bodyMat, accentMat } = unit
+  const rind = identityMaterial(0x4ade80, { glow: 0.22, roughness: 0.42 })
+  const sugar = identityMaterial(0xfff7ed, { glow: 0.46, roughness: 0.5 })
+  const foil = identityMaterial(0xdbeafe, { metalness: 0.9, roughness: 0.16, glow: 0.3 })
+  root.userData.identityMaterials = [rind, sugar, foil]
+
+  switch (identity) {
+    case 'cherry-brick': {
+      const cherry = identityMaterial(0xff3145, { glow: 0.34, roughness: 0.26 })
+      root.userData.identityMaterials.push(cherry)
+      const lobe = new THREE.SphereGeometry(0.33, 14, 12)
+      identityMesh(root, lobe, cherry, [-0.3, -0.05, -0.06], [0, 0.16, 0])
+      identityMesh(root, lobe, cherry, [0.3, -0.05, -0.06], [0, -0.16, 0])
+      identityMesh(root, new THREE.TorusGeometry(0.47, 0.032, 6, 28), accentMat, [0, -0.12, 0.04], [1.28, 0, 0])
+      identityMesh(root, new THREE.ConeGeometry(0.13, 0.4, 4), rind, [0.13, 0.48, -0.05], [0, 0, -0.65], [0.8, 1, 0.35])
+      break
+    }
+    case 'citrus-burst': {
+      const citrus = identityMaterial(0xffa300, { glow: 0.35, roughness: 0.3 })
+      root.userData.identityMaterials.push(citrus)
+      identityMesh(root, new THREE.TorusGeometry(0.48, 0.035, 8, 32), citrus, [0, 0, 0.3])
+      const segment = new THREE.BoxGeometry(0.018, 0.33, 0.025)
+      for (let i = 0; i < 6; i++) identityMesh(root, segment, citrus, [0, 0, 0.305], [0, 0, (i / 6) * Math.PI])
+      identityMesh(root, new THREE.ConeGeometry(0.13, 0.22, 5), rind, [0, 0.48, -0.08], [0, 0, Math.PI], [1, 0.72, 0.42])
+      break
+    }
+    case 'sour-ribbon': {
+      const sour = identityMaterial(0xb9f227, { glow: 0.34, roughness: 0.34 })
+      root.userData.identityMaterials.push(sour)
+      identityTube(root, [[-0.55, 0.38, -0.12], [-0.22, 0.1, -0.2], [0.18, -0.42, -0.18], [0.58, -0.58, -0.1]], 0.095, sour)
+      const crystal = new THREE.OctahedronGeometry(0.052, 0)
+      for (let i = 0; i < 6; i++) {
+        const a = (i / 6) * Math.PI * 2
+        identityMesh(root, crystal, sugar, [Math.cos(a) * 0.42, Math.sin(a) * 0.34, 0.12])
+      }
+      break
+    }
+    case 'crimped-wrapper': {
+      identityMesh(root, new THREE.BoxGeometry(0.76, 0.4, 0.14), bodyMat, [0, 0, -0.08])
+      addCrimpedEnds(root, foil, 0.5)
+      identityMesh(root, new THREE.BoxGeometry(0.58, 0.045, 0.035), accentMat, [0, 0, 0.2])
+      break
+    }
+    case 'violet-crinkle': {
+      identityMesh(root, new THREE.BoxGeometry(0.6, 0.33, 0.12), bodyMat, [0, 0, -0.08])
+      addCrimpedEnds(root, accentMat, 0.42)
+      for (const y of [-0.1, 0.1]) identityMesh(root, new THREE.BoxGeometry(0.44, 0.026, 0.03), foil, [0, y, 0.16])
+      break
+    }
+    case 'sachet': {
+      identityMesh(root, new THREE.BoxGeometry(0.64, 0.76, 0.12), bodyMat, [0, 0, -0.08])
+      identityMesh(root, new THREE.BoxGeometry(0.48, 0.06, 0.035), accentMat, [0, 0.23, 0.16])
+      identityMesh(root, new THREE.ConeGeometry(0.09, 0.15, 3), foil, [0, 0.43, -0.02], [0, 0, Math.PI], [1, 0.55, 0.3])
+      break
+    }
+    case 'flash-seal': {
+      const shard = new THREE.TetrahedronGeometry(0.27, 0)
+      for (const a of [0.2, 2.3, 4.4]) identityMesh(root, shard, accentMat, [Math.cos(a) * 0.39, Math.sin(a) * 0.39, -0.1], [a, a * 0.5, a], [0.7, 1.4, 0.42])
+      identityMesh(root, new THREE.OctahedronGeometry(0.3, 0), foil, [0, 0, -0.18], [0.5, 0.2, 0])
+      break
+    }
+    case 'hard-seal': {
+      identityMesh(root, new THREE.CylinderGeometry(0.46, 0.46, 0.16, 12), bodyMat, [0, 0, -0.16], [Math.PI / 2, 0, 0])
+      identityMesh(root, new THREE.TorusGeometry(0.38, 0.038, 8, 24), accentMat, [0, 0, 0.02])
+      identityMesh(root, new THREE.BoxGeometry(0.5, 0.055, 0.04), foil, [0, -0.26, 0.12])
+      break
+    }
+    case 'blank-pack': {
+      identityMesh(root, new THREE.BoxGeometry(0.72, 0.62, 0.16), bodyMat, [0, 0, -0.08])
+      identityMesh(root, new THREE.BoxGeometry(0.45, 0.25, 0.025), foil, [0, 0, 0.12])
+      identityMesh(root, new THREE.BoxGeometry(0.34, 0.025, 0.03), accentMat, [0, -0.13, 0.15])
+      break
+    }
+    case 'hard-set': {
+      for (const y of [-0.2, 0, 0.2]) identityMesh(root, new THREE.BoxGeometry(0.7, 0.1, 0.2), bodyMat, [0, y, -0.1])
+      identityMesh(root, new THREE.TorusGeometry(0.39, 0.025, 4, 20), accentMat, [0, 0, 0.02], [0.9, 0, 0.3])
+      break
+    }
+    case 'hard-chew': {
+      identityTube(root, [[-0.4, -0.34, -0.08], [-0.12, 0.34, 0.03], [0.16, -0.28, 0.06], [0.42, 0.34, -0.08]], 0.09, accentMat)
+      identityTube(root, [[-0.4, 0.31, -0.11], [-0.12, -0.3, 0.02], [0.16, 0.3, 0.05], [0.42, -0.27, -0.1]], 0.055, foil)
+      break
+    }
+    case 'brick-bite': {
+      const slab = new THREE.BoxGeometry(0.72, 0.15, 0.24)
+      for (const y of [-0.21, 0, 0.21]) identityMesh(root, slab, bodyMat, [0, y, -0.1], [0, 0, y * 0.45])
+      identityMesh(root, new THREE.BoxGeometry(0.62, 0.04, 0.035), accentMat, [0, 0.27, 0.11])
+      break
+    }
+    case 'rind-wall': {
+      identityMesh(root, new THREE.CylinderGeometry(0.53, 0.53, 0.11, 16), bodyMat, [0, 0, -0.18], [Math.PI / 2, 0, 0])
+      identityMesh(root, new THREE.TorusGeometry(0.45, 0.055, 8, 28), accentMat, [0, 0, -0.11])
+      for (const a of [0, Math.PI / 2, Math.PI, Math.PI * 1.5]) identityMesh(root, new THREE.SphereGeometry(0.05, 8, 8), foil, [Math.cos(a) * 0.34, Math.sin(a) * 0.34, -0.08])
+      break
+    }
+    case 'gummy-vault': {
+      identityMesh(root, new THREE.CylinderGeometry(0.48, 0.48, 0.16, 14), bodyMat, [0, 0, -0.16], [Math.PI / 2, 0, 0])
+      identityMesh(root, new THREE.TorusGeometry(0.36, 0.025, 8, 22), accentMat, [0, 0, -0.06])
+      for (let i = 0; i < 6; i++) {
+        const a = (i / 6) * Math.PI * 2
+        identityMesh(root, new THREE.SphereGeometry(0.048, 8, 8), foil, [Math.cos(a) * 0.31, Math.sin(a) * 0.31, -0.04])
+      }
+      break
+    }
+    case 'the-block': {
+      identityMesh(root, new THREE.BoxGeometry(0.84, 0.58, 0.28), bodyMat, [0, 0, -0.1])
+      for (const y of [-0.18, 0.18]) identityMesh(root, new THREE.BoxGeometry(0.9, 0.045, 0.04), accentMat, [0, y, 0.08])
+      identityMesh(root, new THREE.BoxGeometry(0.06, 0.6, 0.04), foil, [0, 0, 0.1])
+      break
+    }
+    case 'last-drop': {
+      identityMesh(root, new THREE.SphereGeometry(0.31, 14, 12), bodyMat, [0, -0.02, -0.08], [0, 0, 0], [0.82, 1.35, 0.82])
+      identityMesh(root, new THREE.SphereGeometry(0.095, 10, 8), accentMat, [0.24, 0.4, -0.05], [0, 0, 0], [0.8, 1.6, 0.8])
+      identityMesh(root, new THREE.TorusGeometry(0.33, 0.018, 6, 20), foil, [0, -0.02, 0.16], [1.1, 0, 0])
+      break
+    }
+    case 'juice-bloom': {
+      const drop = new THREE.SphereGeometry(0.1, 10, 8)
+      for (let i = 0; i < 5; i++) {
+        const a = (i / 5) * Math.PI * 2
+        identityMesh(root, drop, accentMat, [Math.cos(a) * 0.38, Math.sin(a) * 0.38, -0.02], [0, 0, 0], [0.75, 1.45, 0.75])
+      }
+      identityMesh(root, new THREE.SphereGeometry(0.13, 10, 8), sugar, [0, 0, 0.17])
+      break
+    }
+    case 'refill-cartridge': {
+      identityMesh(root, new THREE.CylinderGeometry(0.28, 0.28, 0.72, 12), bodyMat, [0, 0, -0.1])
+      identityMesh(root, new THREE.CylinderGeometry(0.32, 0.32, 0.07, 12), accentMat, [0, 0.34, -0.1])
+      identityMesh(root, new THREE.TorusGeometry(0.25, 0.024, 6, 20), foil, [0, -0.1, 0.18], [Math.PI / 2, 0, 0])
+      break
+    }
+    case 'licorice-tangle': {
+      identityTube(root, [[-0.44, -0.26, -0.1], [-0.12, 0.43, -0.15], [0.18, -0.34, -0.1], [0.42, 0.25, -0.08]], 0.066, bodyMat)
+      identityTube(root, [[-0.42, 0.27, -0.05], [-0.1, -0.37, 0.05], [0.17, 0.36, 0.02], [0.45, -0.22, -0.05]], 0.05, accentMat)
+      break
+    }
+    case 'the-gulp': {
+      identityMesh(root, new THREE.TorusGeometry(0.42, 0.1, 10, 28), bodyMat, [0, -0.03, 0.04], [0.12, 0, 0])
+      identityMesh(root, new THREE.TorusGeometry(0.28, 0.036, 8, 22), accentMat, [0, -0.03, 0.13])
+      for (const x of [-0.18, 0.18]) identityMesh(root, new THREE.SphereGeometry(0.06, 8, 8), sugar, [x, 0.34, 0.02])
+      break
+    }
+    case 'the-flood': {
+      identityTube(root, [[-0.56, -0.3, -0.1], [-0.22, 0.22, 0.02], [0.08, -0.18, 0.02], [0.52, 0.33, -0.1]], 0.085, accentMat)
+      identityTube(root, [[-0.48, 0.15, -0.14], [-0.12, -0.1, -0.05], [0.23, 0.25, -0.04], [0.54, -0.04, -0.12]], 0.045, foil)
+      break
+    }
+    case 'original': {
+      identityMesh(root, new THREE.TorusGeometry(0.62, 0.024, 6, 30), accentMat, [0, 0, -0.08], [1.05, 0.35, 0])
+      identityMesh(root, new THREE.OctahedronGeometry(0.16, 0), foil, [0, 0.52, -0.03], [0.3, 0.2, 0])
+      break
+    }
+  }
+}
+
+export function setUnitRegalia(unit: Unit, regalia: UnitRegalia, color: number) {
+  disposeRegalia(unit)
+  unit.regalia = regalia
+  if (unit._authoredRuntime) return
+  const root = unit._regaliaPivot
+  const trim = identityMaterial(color, { metalness: 0.7, roughness: 0.2, glow: 0.38 })
+  const foil = identityMaterial(0xf8fafc, { metalness: 0.92, roughness: 0.12, glow: 0.26 })
+  root.userData.regaliaMaterials = [trim, foil]
+
+  switch (regalia) {
+    case 'fruit-front': {
+      const tab = new THREE.ConeGeometry(0.12, 0.32, 4)
+      identityMesh(root, new THREE.TorusGeometry(0.48, 0.018, 6, 24), trim, [0, -0.02, -0.16], [1.18, 0, 0])
+      identityMesh(root, tab, trim, [-0.34, 0.28, -0.08], [0, 0, -0.72], [0.72, 1, 0.35])
+      identityMesh(root, tab, trim, [0.34, 0.28, -0.08], [0, 0, 0.72], [0.72, 1, 0.35])
+      break
+    }
+    case 'sealed': {
+      identityMesh(root, new THREE.TorusGeometry(0.61, 0.022, 8, 32), foil, [0, 0, 0.08], [0.25, 0, 0])
+      const stamp = new THREE.BoxGeometry(0.11, 0.11, 0.05)
+      for (const a of [0.4, 1.9, 3.4, 4.9]) {
+        identityMesh(root, stamp, trim, [Math.cos(a) * 0.54, Math.sin(a) * 0.54, 0.09], [0, 0, a], [1, 1, 1])
+      }
+      break
+    }
+    case 'hard-set': {
+      const plate = new THREE.BoxGeometry(0.2, 0.24, 0.11)
+      for (const x of [-0.5, 0.5]) identityMesh(root, plate, trim, [x, 0.04, 0.12], [0, x * -0.32, 0], [1, 1, 1])
+      identityMesh(root, new THREE.BoxGeometry(0.62, 0.055, 0.045), foil, [0, 0.38, 0.1])
+      break
+    }
+    case 'refilling': {
+      const drop = new THREE.SphereGeometry(0.075, 10, 8)
+      for (let i = 0; i < 4; i++) {
+        const a = (i / 4) * Math.PI * 2 + 0.35
+        identityMesh(root, drop, trim, [Math.cos(a) * 0.52, Math.sin(a) * 0.42, 0.08], [0, 0, 0], [0.8, 1.5, 0.8])
+      }
+      identityMesh(root, new THREE.TorusGeometry(0.46, 0.017, 6, 24), foil, [0, -0.05, 0.06], [1.38, 0, 0])
+      break
+    }
+    case 'original': {
+      identityMesh(root, new THREE.TorusGeometry(0.65, 0.022, 6, 32), trim, [0, 0.08, -0.16], [0.88, 0.28, 0])
+      for (const x of [-0.23, 0, 0.23]) identityMesh(root, new THREE.TetrahedronGeometry(0.1, 0), foil, [x, 0.58 - Math.abs(x) * 0.35, 0.02])
+      break
+    }
+  }
+}
+
+export function updateUnitIdentity(unit: Unit, t: number) {
+  if (unit._authoredRuntime) {
+    updateAuthoredUnitArt(unit._authoredRuntime, t, unit._eyePhase)
+    return
+  }
+  const pivot = unit._identityPivot
+  pivot.rotation.set(0, 0, 0)
+  pivot.position.y = CORE_Y
+
+  if (unit.identity === 'sour-ribbon' || unit.identity === 'licorice-tangle' || unit.identity === 'the-flood') {
+    pivot.rotation.z = Math.sin(t * 2.1 + unit._eyePhase) * 0.075
+    pivot.rotation.y = Math.sin(t * 0.9 + unit._eyePhase) * 0.12
+  } else if (unit.identity === 'crimped-wrapper' || unit.identity === 'violet-crinkle' || unit.identity === 'flash-seal') {
+    pivot.rotation.z = Math.sin(t * 2.6 + unit._eyePhase) * 0.05
+  } else if (unit.identity === 'citrus-burst' || unit.identity === 'juice-bloom' || unit.identity === 'last-drop') {
+    pivot.rotation.y = t * 0.38
+  } else if (unit.identity === 'the-gulp' || unit.identity === 'refill-cartridge') {
+    pivot.position.y += Math.sin(t * 1.6 + unit._eyePhase) * 0.025
+  }
+}
+
+export function updateUnitRegalia(unit: Unit, t: number) {
+  if (unit._authoredRuntime) return
+  const pivot = unit._regaliaPivot
+  pivot.position.y = CORE_Y
+  pivot.rotation.set(0, 0, 0)
+  if (unit.regalia === 'fruit-front') {
+    pivot.rotation.z = Math.sin(t * 1.8 + unit._eyePhase) * 0.045
+  } else if (unit.regalia === 'sealed') {
+    pivot.rotation.y = t * 0.42
+  } else if (unit.regalia === 'hard-set') {
+    pivot.position.y += Math.sin(t * 1.5 + unit._eyePhase) * 0.025
+  } else if (unit.regalia === 'refilling') {
+    pivot.rotation.y = -t * 0.3
+    pivot.position.y += Math.sin(t * 2.2 + unit._eyePhase) * 0.035
+  } else if (unit.regalia === 'original') {
+    pivot.rotation.y = t * 0.22
+  }
 }
 
 // ── Marks — what the player becomes is written on the body ────────────────────
@@ -313,8 +682,12 @@ export function applyMarks(unit: Unit, absorbed: PlayerClass[], depth: number) {
   if (!absorbed.length && depth <= 0) { unit.accentMat.emissiveIntensity = 0.45; return }
 
   const holder = new THREE.Group()
-  holder.position.y = CORE_Y
-  unit.group.add(holder)
+  if (unit._authoredRuntime) {
+    unit.body.add(holder)
+  } else {
+    holder.position.y = CORE_Y
+    unit.group.add(holder)
+  }
   unit._extra.push(holder)
 
   for (const cls of absorbed) {
@@ -443,9 +816,21 @@ export function updateEye(unit: Unit, t: number, mood: 'none' | 'poison' | 'vuln
   else if (mood === 'weak') { baseY = lid * 0.78; unit.eyeMat.emissive.setHex(0xfde68a) }
   else unit.eyeMat.emissive.setHex(0xdfe6ff)
 
-  unit.eye.scale.y = (unit.eye.scale.x) * baseY   // keep aspect from form's eyeScale (x)
+  unit.eye.scale.set(unit._eyeScale.x, unit._eyeScale.y * baseY, unit._eyeScale.z)
 }
 
 // Momentary eye poses for action beats.
-export function eyeNarrow(unit: Unit) { unit.eye.scale.y = unit.eye.scale.x * 0.4 }
-export function eyeWiden(unit: Unit)  { unit.eye.scale.y = unit.eye.scale.x * 1.35 }
+export function eyeNarrow(unit: Unit) { unit.eye.scale.y = unit._eyeScale.y * 0.4 }
+export function eyeWiden(unit: Unit)  { unit.eye.scale.y = unit._eyeScale.y * 1.35 }
+
+export function isAuthoredUnit(unit: Unit) {
+  return unit._authoredRuntime !== null
+}
+
+export function poseUnit(unit: Unit, pose: UnitPose, progress: number, direction = 1) {
+  if (unit._authoredRuntime) poseAuthoredUnit(unit._authoredRuntime, pose, progress, direction)
+}
+
+export function resetUnitPose(unit: Unit) {
+  if (unit._authoredRuntime) resetAuthoredUnitPose(unit._authoredRuntime)
+}

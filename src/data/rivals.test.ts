@@ -18,7 +18,7 @@ describe('candyRivalFor', () => {
 
   it('falls back to a trait-aware Court voice for future encounters', () => {
     const rival = candyRivalFor({
-      name: 'Fresh Batch', bodyColor: 0, accentColor: 0, hp: 1, moves: [],
+      name: 'Fresh Batch', visual: 'hard-set', bodyColor: 0, accentColor: 0, hp: 1, moves: [],
       traits: [{ kind: 'armored', absorb: 1 }],
     })
     expect(rival.speaker).toContain('FRESH BATCH')

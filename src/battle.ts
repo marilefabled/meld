@@ -10,10 +10,12 @@ import { createRegistry } from './engine/registry.js'
 import { CARD_DATA, TIER_ROMAN, MAX_TIER, makeCard, getVariant, DEFAULT_BUILD, type CardBuild, type CardDef, type GameCard } from './data/cards.js'
 import { ENCOUNTERS, moveShape, type EnemyMove, type EnemyTrait, type EnemyDef } from './data/encounters.js'
 import { CLASS_CONFIGS, type PlayerClass } from './data/classes.js'
-import { buildUnit, setForm, setPlayerForm, applyMarks, applyTrophies, parseTrophies, updateEye, eyeNarrow, eyeWiden, CLASS_FORM, TRAIT_FORM, CORE_Y, GLOW, type Unit } from './view/unit.js'
+import { buildUnit, setForm, setPlayerForm, setUnitIdentity, setUnitRegalia, updateUnitIdentity, updateUnitRegalia, applyMarks, applyTrophies, parseTrophies, updateEye, eyeNarrow, eyeWiden, isAuthoredUnit, poseUnit, resetUnitPose, CLASS_FORM, TRAIT_FORM, CORE_Y, GLOW, type Unit } from './view/unit.js'
+import { arenaForEncounter, createArenaDressing } from './view/arena.js'
 import { sfx } from './sfx.js'
 import type { Modifier } from './data/modifiers.js'
 import { buildIcon, buildStatusIcon, cardArt, type IconShape } from './engine/icons.js'
+import { canToggleHold } from './engine/hold.js'
 import { bigCardHTML, showCardPreview, hideCardPreview } from './view/cardPreview.js'
 import { showRewardScreen, type Reward } from './screens/rewardScreen.js'
 import { showRivalOpening } from './screens/rivalDialogue.js'
@@ -204,7 +206,7 @@ export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom 
   scene.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(gridPts), gridMat))
 
   const ringGeo = new THREE.RingGeometry(0.6, 0.85, 48)
-  const playerRingMat = new THREE.MeshBasicMaterial({ color: 0x3b82f6, transparent: true, opacity: 0.25, side: THREE.DoubleSide })
+  const playerRingMat = new THREE.MeshBasicMaterial({ color: classConfig.accentColor, transparent: true, opacity: 0.25, side: THREE.DoubleSide })
   const enemyRingMat  = new THREE.MeshBasicMaterial({ color: 0xef4444, transparent: true, opacity: 0.25, side: THREE.DoubleSide })
   const playerRing = new THREE.Mesh(ringGeo, playerRingMat)
   playerRing.rotation.x = -Math.PI / 2; playerRing.position.set(-2.5, 0.015, 0)
@@ -213,7 +215,7 @@ export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom 
   enemyRing.rotation.x = -Math.PI / 2; enemyRing.position.set(2.5, 0.015, 0)
   scene.add(enemyRing)
 
-  const playerFloorLight = new THREE.PointLight(0x3b82f6, 0.7, 3.5)
+  const playerFloorLight = new THREE.PointLight(classConfig.bodyColor, 0.7, 3.5)
   playerFloorLight.position.set(-2.5, 0.1, 0)
   scene.add(playerFloorLight)
   const enemyFloorLight = new THREE.PointLight(0xef4444, 0.7, 3.5)
@@ -336,11 +338,42 @@ export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom 
   makeMist(0.35, 30, 0.13, 0.012)
   makeMist(0.75, 26, 0.09, -0.008)
 
+  const arenaDressing = createArenaDressing(scene)
+
+  function regaliaForEnemy(def: EnemyDef) {
+    const trait = def.traits?.[0]?.kind
+    if (trait === 'immune') return 'sealed' as const
+    if (trait === 'armored') return 'hard-set' as const
+    return 'refilling' as const
+  }
+
+  function applyArena(def: EnemyDef) {
+    const profile = arenaForEncounter(def, isFinale)
+    floorMat.color.setHex(profile.floor)
+    gridMat.color.setHex(profile.grid)
+    rockMatA.color.setHex(profile.fog)
+    rockMatB.color.setHex(profile.grid)
+    pillarMat.color.setHex(profile.fog)
+    aRing1.mat.color.setHex(profile.ring)
+    aRing2.mat.color.setHex(profile.light)
+    dustMat.color.setHex(profile.dust)
+    for (const mist of mistLayers) mist.mat.uniforms.uColor.value.setHex(profile.dust)
+    ;(scene.fog as THREE.FogExp2).color.setHex(profile.fog)
+    for (const light of pillarLights) light.color.setHex(profile.light)
+    rim.color.setHex(profile.ring)
+    warmRim.color.setHex(profile.light)
+    arenaDressing.set(profile)
+    return profile
+  }
+
   // ── Units ───────────────────────────────────────────────────────────────
-  const player = buildUnit(0x3b82f6, 0x60a5fa)
+  const player = buildUnit(classConfig.bodyColor, classConfig.accentColor)
   setPlayerForm(player, playerClass, absorbedForms, playerDepth, campaignRings, trophyRings)
+  setUnitIdentity(player, classConfig.visual)
+  setUnitRegalia(player, 'fruit-front', classConfig.accentColor)
+  if (isAuthoredUnit(player)) applyMarks(player, absorbedForms, playerDepth)
   player.group.position.set(-2.5, 0, 0)
-  player.group.rotation.y =  Math.PI / 2 - 0.28   // faces enemy (+X), slight 3/4 to camera
+  player.group.rotation.y = isAuthoredUnit(player) ? 0.62 : Math.PI / 2 - 0.28
   player._eyePhase = 0.2
   scene.add(player.group)
 
@@ -560,6 +593,13 @@ export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom 
   function setAnimating(v: boolean) {
     _animating = v
     updateEndTurnButton()
+  }
+
+  function setGameOverVisible(visible: boolean) {
+    $gameOver.classList.toggle('show', visible)
+    $gameOver.setAttribute('aria-hidden', String(!visible))
+    $gameOver.inert = !visible
+    if (visible) requestAnimationFrame(() => $goRestart.focus())
   }
 
   function isTutorialMeldGate(): boolean {
@@ -801,6 +841,15 @@ export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom 
   }
 
   function toggleHold(card: GameCard) {
+    if (!canToggleHold({
+      isAnimating: _animating,
+      isHeld: heldIds.has(card.id),
+      isPlayerTurn: gameState.is('player_turn'),
+      isTutorialLocked: isTutorialMeldGate(),
+      heldCount: heldIds.size,
+      maxHolds: MAX_HOLDS,
+    })) return
+
     let held = false
     if (heldIds.has(card.id)) heldIds.delete(card.id)
     else if (heldIds.size < MAX_HOLDS) { heldIds.add(card.id); held = true }
@@ -958,7 +1007,6 @@ export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom 
     hideCardPreview()
     $hand.innerHTML = ''
     const isPlayerTurn = gameState.is('player_turn')
-    const canHoldMore = heldIds.size < MAX_HOLDS
     const tutorialGate = isTutorialMeldGate()
 
     let dealIdx = 0
@@ -969,6 +1017,14 @@ export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom 
       const isHeld    = heldIds.has(card.id)
       const hasMerge  = card.tier < MAX_TIER && !!findMergeTarget(card)
       const tutorialTarget = tutorialGate && card.cardId === tutorial?.signatureCard && hasMerge
+      const canToggleThisHold = canToggleHold({
+        isAnimating: _animating,
+        isHeld,
+        isPlayerTurn,
+        isTutorialLocked: tutorialGate,
+        heldCount: heldIds.size,
+        maxHolds: MAX_HOLDS,
+      })
       const tierClass = card.tier > 1 ? ` tier-${card.tier}` : ''
       const mergeClass = hasMerge ? ' mergeable' : ''
       const heldClass  = isHeld ? ' held' : ''
@@ -978,7 +1034,9 @@ export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom 
       const visualDisabled = baseDisabled || (tutorialGate && !tutorialTarget)
 
       const el = document.createElement('div')
-      el.className = 'card' + tierClass + mergeClass + heldClass + tutorialClass + (visualDisabled ? ' disabled' : '')
+      el.className = 'card' + tierClass + mergeClass + heldClass + tutorialClass
+        + (visualDisabled ? ' disabled' : '')
+        + (canToggleThisHold ? ' hold-ready' : '')
       el.dataset.cardId = card.id
       el.style.setProperty('--cc', '#' + def.color.toString(16).padStart(6, '0'))
       if (deal) {
@@ -1009,7 +1067,7 @@ export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom 
           btn.addEventListener('click', e => { e.stopPropagation(); doMerge(card) })
           el.appendChild(btn)
         }
-        if (!tutorialGate && (isHeld || canHoldMore)) {
+        if (canToggleThisHold) {
           const hbtn = document.createElement('button')
           hbtn.className = 'hold-btn'
           hbtn.textContent = isHeld ? '📌 RELEASE' : '📌 HOLD'
@@ -1157,6 +1215,7 @@ export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom 
     const mat = unit.body.material
     // Ring B expands on windup, the core charges in the card's colour, then lunges
     timer.tween(0.09, p => {
+      poseUnit(unit, 'windup', p, dir)
       unit.group.position.x = startX - dir * 0.28 * p
       unit.armR.scale.setScalar(1 + p * 0.45)
       unit.body.rotation.z = -dir * 0.12 * p
@@ -1166,6 +1225,7 @@ export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom 
         const cpos = unit.group.position.clone(); cpos.y += CORE_Y
         vfx.burst(cpos, 8, { speed: 1.8, spread: 0.5, up: 0.4, life: 0.3, size: 0.1, color })   // cast spark
         timer.tween(0.12, p => {
+          poseUnit(unit, 'attack', p, dir)
           unit.group.position.x = startX - dir * 0.28 + dir * 1.72 * p
           unit.armR.scale.setScalar(1.45 - p * 0.45)
           unit.body.rotation.z = -dir * 0.12 * (1 - p)
@@ -1174,9 +1234,10 @@ export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom 
             onHit()
             const peakX = startX + dir * 1.44
             timer.tween(0.22, p => {
+              poseUnit(unit, 'recover', p, dir)
               unit.group.position.x = peakX + (startX - peakX) * p
               mat.emissiveIntensity = (GLOW + 1.3) * (1 - p) + GLOW * p
-            }, { onComplete: () => { mat.emissive.setHex(mat.color.getHex()); mat.emissiveIntensity = GLOW } })
+            }, { onComplete: () => { resetUnitPose(unit); mat.emissive.setHex(mat.color.getHex()); mat.emissiveIntensity = GLOW } })
           }
         })
       }
@@ -1189,6 +1250,7 @@ export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom 
     const mat = unit.body.material
     // Both rings flare outward, the core gathers energy in the card's colour
     timer.tween(0.18, p => {
+      poseUnit(unit, 'cast', p, dir)
       unit.armL.scale.setScalar(1 + p * 0.5)
       unit.armR.scale.setScalar(1 + p * 0.5)
       unit.body.position.y = CORE_Y + p * 0.18
@@ -1205,12 +1267,13 @@ export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom 
           vfx.burst(proj, 5, { speed: 0.55, spread: 0.4, up: 0.15, life: 0.34, size: 0.16, color })   // themed comet trail
         }, { onComplete: () => { onHit() } })
         timer.tween(0.14, p => {
+          poseUnit(unit, 'recover', p, dir)
           unit.armL.scale.setScalar(1.5 - p * 0.5)
           unit.armR.scale.setScalar(1.5 - p * 0.5)
           unit.body.position.y = CORE_Y + 0.18 - p * 0.18
           unit.body.rotation.z = -dir * 0.1 * (1 - p)
           mat.emissiveIntensity = (GLOW + 2.0) * (1 - p) + GLOW * p
-        }, { onComplete: () => { mat.emissive.setHex(mat.color.getHex()); mat.emissiveIntensity = GLOW } })
+        }, { onComplete: () => { resetUnitPose(unit); mat.emissive.setHex(mat.color.getHex()); mat.emissiveIntensity = GLOW } })
       }
     })
   }
@@ -1221,6 +1284,7 @@ export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom 
     const mat = unit.body.material
     const origin = unit.group.position.clone(); origin.y += 1.5
     timer.tween(0.12, p => {
+      poseUnit(unit, 'cast', p, Math.sign(targetPos.x - unit.group.position.x))
       mat.emissive.setHex(color); mat.emissiveIntensity = GLOW + p * 2.6
       unit.armL.scale.setScalar(1 + p * 0.3); unit.armR.scale.setScalar(1 + p * 0.3)
     }, {
@@ -1237,9 +1301,10 @@ export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom 
         timer.after(0.05, () => vfx.burst(fork, 6, { speed: 1.5, spread: 0.5, up: 0.6, life: 0.3, size: 0.1, color }))
         timer.after(0.1, onHit)
         timer.tween(0.18, p => {
+          poseUnit(unit, 'recover', p)
           mat.emissiveIntensity = (GLOW + 2.6) * (1 - p) + GLOW * p
           unit.armL.scale.setScalar(1.3 - p * 0.3); unit.armR.scale.setScalar(1.3 - p * 0.3)
-        }, { onComplete: () => { mat.emissive.setHex(mat.color.getHex()); mat.emissiveIntensity = GLOW } })
+        }, { onComplete: () => { resetUnitPose(unit); mat.emissive.setHex(mat.color.getHex()); mat.emissiveIntensity = GLOW } })
       }
     })
   }
@@ -1251,6 +1316,7 @@ export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom 
     eyeNarrow(unit)
     const mat = unit.body.material
     timer.tween(0.14, p => {
+      poseUnit(unit, 'attack', p, dir)
       unit.group.position.x = startX + dir * 1.7 * p
       unit.armR.rotation.z = p * 7
       mat.emissive.setHex(color); mat.emissiveIntensity = GLOW + Math.sin(p * Math.PI) * 1.5
@@ -1265,9 +1331,10 @@ export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom 
         }
         const peakX = startX + dir * 1.7
         timer.tween(0.22, p => {
+          poseUnit(unit, 'recover', p, dir)
           unit.group.position.x = peakX + (startX - peakX) * p
           mat.emissiveIntensity = (GLOW + 1.5) * (1 - p) + GLOW * p
-        }, { onComplete: () => { unit.armR.rotation.z = 0; mat.emissive.setHex(mat.color.getHex()); mat.emissiveIntensity = GLOW } })
+        }, { onComplete: () => { resetUnitPose(unit); unit.armR.rotation.z = 0; mat.emissive.setHex(mat.color.getHex()); mat.emissiveIntensity = GLOW } })
       }
     })
   }
@@ -1276,6 +1343,7 @@ export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom 
     const mat = unit.body.material
     // Rings contract inward (held aspects pulled close = defensive)
     timer.tween(0.12, p => {
+      poseUnit(unit, 'block', p)
       unit.group.position.y = -p * 0.3
       unit.armL.scale.setScalar(1 - p * 0.35)
       unit.armR.scale.setScalar(1 - p * 0.35)
@@ -1290,11 +1358,12 @@ export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom 
         shake.addTrauma(0.12)
         onDone()
         timer.tween(0.18, p => {
+          poseUnit(unit, 'recover', p)
           unit.group.position.y = -0.3 * (1 - p)
           unit.armL.scale.setScalar(0.65 + p * 0.35)
           unit.armR.scale.setScalar(0.65 + p * 0.35)
           mat.emissiveIntensity = (GLOW + 0.8) * (1 - p) + GLOW * p
-        }, { onComplete: () => { mat.emissive.setHex(mat.color.getHex()); mat.emissiveIntensity = GLOW } })
+        }, { onComplete: () => { resetUnitPose(unit); mat.emissive.setHex(mat.color.getHex()); mat.emissiveIntensity = GLOW } })
       }
     })
   }
@@ -1317,6 +1386,7 @@ export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom 
     })
     // Rings spread wide, core pulses green
     timer.tween(0.32, p => {
+      poseUnit(unit, 'heal', p)
       unit.body.position.y = CORE_Y + Math.sin(p * Math.PI) * 0.2
       unit.body.material.emissive.setHex(0x22c55e)
       unit.body.material.emissiveIntensity = Math.sin(p * Math.PI) * 1.5
@@ -1324,6 +1394,7 @@ export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom 
       unit.armR.scale.setScalar(1 + Math.sin(p * Math.PI) * 0.35)
     }, {
       onComplete: () => {
+        resetUnitPose(unit)
         stream.cancel()
         unit.body.material.emissive.setHex(unit.bodyMat.color.getHex())
         unit.body.material.emissiveIntensity = GLOW
@@ -1347,6 +1418,7 @@ export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom 
     unit.armL.scale.setScalar(1.5)
     unit.armR.scale.setScalar(1.4)
     timer.tween(0.28, p => {
+      poseUnit(unit, 'hit', p)
       mat.emissiveIntensity = 2.5 * (1 - p) + GLOW * p
       const s = 1 - p   // eases from squash back to normal
       unit.body.scale.set(b.x * (1 + s * 0.38), b.y * (1 - s * 0.38), b.z * (1 + s * 0.38))
@@ -1354,6 +1426,7 @@ export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom 
       unit.armR.scale.setScalar(1.4 - p * 0.4)
     }, {
       onComplete: () => {
+        resetUnitPose(unit)
         mat.emissiveIntensity = GLOW; unit.body.scale.copy(b)
         unit.armL.scale.setScalar(1); unit.armR.scale.setScalar(1)
       }
@@ -1638,8 +1711,6 @@ export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom 
       playerStats.set(s, 0)
       enemyStats.set(s, 0)
     }
-    const scale = isFinale ? 1.45 : ([0.82, 1.15, 1.32][idx] ?? 1.0)
-    enemy.group.scale.setScalar(scale)
     enemy.bodyMat.color.setHex(def.bodyColor)
     enemy.bodyMat.emissive.setHex(def.bodyColor)
     enemy.bodyMat.emissiveIntensity = GLOW
@@ -1648,12 +1719,17 @@ export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom 
     enemy.visorMat.emissive.setHex(def.accentColor)
     enemyRingMat.color.setHex(def.bodyColor)
     enemyFloorLight.color.setHex(def.bodyColor)
-    warmRim.color.setHex(def.accentColor)   // the warm side of the arena takes the fragment's hue
+    const arenaProfile = applyArena(def)
 
     // Silhouette by archetype: the enemy's primary trait drives its form
     // (immune→crystal, armored→block, regen→bloom); the Mirror gets 'meld'.
     const enemyForm = isFinale ? 'meld' : (TRAIT_FORM[def.traits?.[0]?.kind ?? ''] ?? 'orb')
     if (enemy.form !== enemyForm) setForm(enemy, enemyForm)
+    setUnitIdentity(enemy, isFinale ? 'original' : def.visual)
+    setUnitRegalia(enemy, isFinale ? 'original' : regaliaForEnemy(def), def.accentColor)
+    const scale = isFinale ? 1.45 : isAuthoredUnit(enemy) ? 1 : ([0.82, 1.15, 1.32][idx] ?? 1)
+    enemy.group.scale.setScalar(!isFinale && isAuthoredUnit(enemy) ? 0.001 : scale)
+    enemy.group.rotation.y = isAuthoredUnit(enemy) ? -0.62 : -Math.PI / 2 + 0.28
     // The Mirror is "basically your character" — reflect the marks you've accrued
     // and the trophy rings you've won. Your reflection wears your own regalia.
     if (isFinale) {
@@ -1662,14 +1738,14 @@ export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom 
     }
 
     $enemyName.textContent = def.name
-    $encounterInfo.textContent = isFinale ? 'THE ORIGINAL' : `CANDY SEAL ${idx + 1} / ${encounters.length}`
+    $encounterInfo.textContent = isFinale
+      ? arenaProfile.label
+      : `CANDY SEAL ${idx + 1} / ${encounters.length}  ·  ${arenaProfile.label}`
 
     pickEnemyIntent()
     updateHUD()
-    const beginBattle = () => {
-      if (isFinale) {
-        mirrorEntrance(scale, startPlayerTurn)
-      } else if (idx > 0) {
+    const releaseBattle = () => {
+      if (idx > 0) {
         flash(`CANDY SEAL ${idx + 1}  ·  ${def.name.toUpperCase()}`, 1.0)
         timer.after(0.9, showTraitTell)
         timer.after(1.45, startPlayerTurn)
@@ -1678,7 +1754,106 @@ export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom 
         timer.after(0.85, startPlayerTurn)
       }
     }
+    const beginBattle = () => {
+      if (isFinale) {
+        mirrorEntrance(scale, startPlayerTurn)
+      } else if (isAuthoredUnit(enemy)) {
+        authoredEnemyEntrance(scale, releaseBattle)
+      } else {
+        releaseBattle()
+      }
+    }
     void showRivalOpening(candyRivalFor(def)).then(beginBattle)
+  }
+
+  // The authored candy units enter according to how they are manufactured.
+  // This is short enough to preserve turn cadence, but gives each doctrine weight
+  // before the HUD hands control back to the player.
+  function authoredEnemyEntrance(finalScale: number, then: () => void) {
+    setAnimating(true)
+    resetUnitPose(enemy)
+    const identity = enemy.identity
+    const finalX = 2.5
+    const finalY = 0
+    const finalRot = -0.62
+    const core = new THREE.Vector3(finalX, CORE_Y, 0)
+
+    enemy.group.rotation.y = finalRot
+
+    if (identity === 'crimped-wrapper') {
+      enemy.group.position.set(4.65, finalY, 0)
+      enemy.group.scale.setScalar(finalScale * 0.58)
+      vfx.burst(new THREE.Vector3(4.2, CORE_Y, 0), 18, { speed: 1.1, spread: 0.55, up: 0.25, life: 0.48, size: 0.1, color: 0xfacc15 })
+      timer.tween(0.62, p => {
+        const e = 1 - Math.pow(1 - p, 3)
+        enemy.group.position.x = 4.65 + (finalX - 4.65) * e
+        enemy.group.scale.setScalar(finalScale * (0.58 + e * 0.42))
+        poseUnit(enemy, 'windup', Math.sin(p * Math.PI), -1)
+      }, { onComplete: () => {
+        resetUnitPose(enemy)
+        ringFx(core, 0xfacc15, 0.25, 1.5, 0.3, 0.72)
+        vfx.burst(core, 14, { speed: 1.7, spread: 0.55, up: 0.35, life: 0.34, size: 0.09, color: 0xffffff })
+        finish()
+      } })
+      return
+    }
+
+    if (identity === 'hard-set') {
+      enemy.group.position.set(finalX, 3.45, 0)
+      enemy.group.scale.setScalar(finalScale * 0.74)
+      timer.tween(0.58, p => {
+        const e = 1 - Math.pow(1 - p, 3)
+        enemy.group.position.y = finalY + (1 - e) * 3.45 + Math.sin(p * Math.PI) * 0.08
+        enemy.group.scale.setScalar(finalScale * (0.74 + e * 0.26))
+        poseUnit(enemy, 'attack', Math.min(1, p * 1.35), -1)
+      }, { onComplete: () => {
+        resetUnitPose(enemy)
+        impactRing(core, 0xff3b30, 1.2)
+        ringFx(core, 0xffd166, 0.45, 2.15, 0.42, 0.72)
+        vfx.burst(core, 24, { speed: 2.0, spread: 0.9, up: 0.32, life: 0.48, size: 0.12, color: 0xffd166 })
+        shake.addTrauma(0.42)
+        finish()
+      } })
+      return
+    }
+
+    if (identity === 'last-drop') {
+      enemy.group.position.set(finalX, -0.3, 0)
+      enemy.group.scale.set(finalScale * 0.48, 0.001, finalScale * 0.48)
+      ringFx(new THREE.Vector3(finalX, 0.05, 0), 0x38bdf8, 1.4, 0.28, 0.7, 0.68, 0.25)
+      timer.tween(0.72, p => {
+        const e = 1 - Math.pow(1 - p, 2)
+        enemy.group.position.y = -0.3 + e * 0.3
+        enemy.group.scale.set(
+          finalScale * (0.48 + e * 0.52),
+          Math.max(0.001, finalScale * e),
+          finalScale * (0.48 + e * 0.52),
+        )
+        poseUnit(enemy, 'heal', e, -1)
+      }, { onComplete: () => {
+        resetUnitPose(enemy)
+        ringFx(core, 0xf472b6, 0.35, 1.8, 0.48, 0.76, 0.18)
+        vfx.burst(core, 26, { speed: 1.45, spread: 0.75, up: 1.2, life: 0.62, size: 0.13, color: 0x38bdf8 })
+        vfx.burst(core, 12, { speed: 1.7, spread: 0.45, up: 0.6, life: 0.42, size: 0.09, color: 0xf472b6 })
+        finish()
+      } })
+      return
+    }
+
+    enemy.group.position.set(finalX, finalY, 0)
+    timer.tween(0.48, p => {
+      const e = 1 - Math.pow(1 - p, 3)
+      enemy.group.scale.setScalar(Math.max(0.001, finalScale * e))
+    }, { onComplete: finish })
+
+    function finish() {
+      enemy.group.position.set(finalX, finalY, 0)
+      enemy.group.scale.setScalar(finalScale)
+      enemy.group.rotation.y = finalRot
+      resetUnitPose(enemy)
+      setAnimating(false)
+      then()
+    }
   }
 
   // ── Mirror finale staging — the one fight that should feel like a finale. ─────
@@ -2005,13 +2180,55 @@ export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom 
     timer.after(0.7, then)
   }
 
+  function authoredEnemyDefeat(from: Unit, color: number) {
+    if (!isAuthoredUnit(from)) {
+      reclaimDeath(from, color)
+      return
+    }
+
+    const src = from.group.position.clone(); src.y += CORE_Y
+    const identity = from.identity
+    const accent = from.accentMat.color.getHex()
+    const duration = identity === 'last-drop' ? 0.22 : 0.16
+    setAnimating(true)
+    eyeWiden(from)
+
+    if (identity === 'crimped-wrapper') {
+      ringFx(src, 0xfacc15, 1.25, 0.18, 0.22, 0.85)
+      vfx.burst(src, 24, { speed: 2.2, spread: 0.7, up: 0.5, life: 0.38, size: 0.11, color: 0xfacc15 })
+      vfx.burst(src, 10, { speed: 2.7, spread: 0.4, up: 0.25, life: 0.24, size: 0.08, color: 0xffffff })
+    } else if (identity === 'hard-set') {
+      impactRing(src, 0xff3b30, 1.35)
+      ringFx(src, 0xffd166, 0.35, 2.45, 0.3, 0.78)
+      vfx.burst(src, 28, { speed: 2.45, spread: 0.95, up: 0.22, life: 0.44, size: 0.12, color: 0xffd166 })
+      shake.addTrauma(0.46)
+    } else if (identity === 'last-drop') {
+      ringFx(src, 0x38bdf8, 0.35, 2.2, 0.4, 0.78, -0.16)
+      vfx.burst(src, 30, { speed: 1.7, spread: 0.9, up: 1.5, life: 0.62, size: 0.14, color: 0x38bdf8 })
+      vfx.burst(src, 16, { speed: 1.9, spread: 0.55, up: 0.7, life: 0.46, size: 0.1, color: 0xf472b6 })
+    } else {
+      vfx.burst(src, 18, { speed: 1.9, spread: 0.7, up: 0.4, life: 0.36, size: 0.1, color: accent })
+    }
+
+    timer.tween(duration, p => {
+      poseUnit(from, 'hit', p, -1)
+      from.bodyMat.emissive.setHex(0xffffff)
+      from.bodyMat.emissiveIntensity = GLOW + p * 2.8
+    }, { onComplete: () => {
+      resetUnitPose(from)
+      from.bodyMat.emissive.setHex(color)
+      from.bodyMat.emissiveIntensity = GLOW
+      reclaimDeath(from, color)
+    } })
+  }
+
   // ── Death check ──────────────────────────────────────────────────────────
 
   function checkDeath(): boolean {
     if (enemyStats.get('hp') <= 0) {
       gameState.set('resting')
       // Reclaim choreography — the fragment implodes and streams back into you.
-      reclaimDeath(enemy, enemy.bodyMat.color.getHex())
+      authoredEnemyDefeat(enemy, enemy.bodyMat.color.getHex())
       timer.after(0.85, async () => {
         if (encounterIdx < encounters.length - 1) {
           runFragments += 10
@@ -2045,7 +2262,7 @@ export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom 
               ? `The Original split · ${turnCount} turns · ⬡ +${runFragments}`
               : `Three Candy seals broken · ${turnCount} turns · ⬡ +${runFragments}`
             if (onVictory) { _endMode = 'victory'; $goRestart.textContent = isFinale ? 'OPEN ANOTHER BAG →' : 'RETURN TO THE BAG →' }
-            $gameOver.classList.add('show')
+            setGameOverVisible(true)
           })
         }
       })
@@ -2063,7 +2280,7 @@ export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom 
           $goTitle.style.color = '#ef4444'
           $goSub.textContent = `Candy seal ${encounterIdx + 1} broken · ${turnCount} turns · ⬡ +${runFragments}`
           if (onDefeat) { _endMode = 'defeat'; $goRestart.textContent = 'SHAKE BACK →' }
-          $gameOver.classList.add('show')
+          setGameOverVisible(true)
         })
       })
       return true
@@ -2081,7 +2298,7 @@ export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom 
     // standalone restart
     _endMode = null
     _firstEncounter = true
-    $gameOver.classList.remove('show')
+    setGameOverVisible(false)
     playerStats.set('hp', playerStats.getMax('hp')!)
     energy = MAX_ENERGY
     turnCount = 0
@@ -2106,6 +2323,8 @@ export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom 
     unit.armL.rotation.y = t * 0.7 + offset   // ring A orbits
     unit.armR.rotation.y = -(t * 0.5 + offset) // ring B counter-orbits
     unit._trophyPivot.rotation.y = t * 0.32 + offset   // earned rings revolve, slower & statelier
+    updateUnitIdentity(unit, t)
+    updateUnitRegalia(unit, t)
   }
 
   // On-unit status tells — each affliction emits its own motes from the core, so
@@ -2130,11 +2349,12 @@ export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom 
   let _frameId = 0
   function dispose() {
     cancelAnimationFrame(_frameId)
+    arenaDressing.dispose()
     renderer.dispose()
     renderer.domElement.remove()
     $holdSlots.remove()
     document.body.classList.remove('game-active')
-    $gameOver.classList.remove('show')
+    setGameOverVisible(false)
   }
 
   let prev = performance.now()
@@ -2221,6 +2441,7 @@ export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom 
     dustGeo.attributes.position.needsUpdate = true
     dustMat.opacity = 0.42 + Math.sin(t * 0.5) * 0.1   // the field breathes
     skyUniforms.uTime.value = t                         // drift the nebula
+    arenaDressing.update(t)
 
     // Ground mist — drift the noise and rotate each layer slowly.
     for (const m of mistLayers) {

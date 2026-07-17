@@ -18,6 +18,7 @@ import { showShop } from './screens/shopScreen.js'
 import { showCampaignComplete } from './screens/campaignCompleteScreen.js'
 import { courtFinalMemorandum, courtLetterForRun } from './data/courtLetters.js'
 import { showCourtLetter } from './screens/courtLetterScreen.js'
+import { createUnitPreview } from './view/unitPreview.js'
 
 // ── Loadout screen ────────────────────────────────────────────────────────────
 interface LoadoutChoice {
@@ -39,6 +40,7 @@ function showLoadout(
   initialTechnique = 'overload',
 ): Promise<LoadoutChoice> {
   return new Promise(resolve => {
+    const classConfig = CLASS_CONFIGS[baseClass]
     const sourceCardIds = customCardIds ?? [...new Set(CLASS_CONFIGS[baseClass].deck)]
     const formTechnique = CLASS_CONFIGS[baseClass].techniqueCard
     let techniqueCard = initialTechnique === formTechnique ? formTechnique : 'overload'
@@ -65,6 +67,13 @@ function showLoadout(
 
     const overlay = document.createElement('div')
     overlay.className = 'loadout-overlay'
+    const formPreview = document.createElement('aside')
+    formPreview.className = 'lo-form-preview'
+    formPreview.innerHTML = `
+      <div class="lo-form-stage" aria-hidden="true"></div>
+      <strong>${classConfig.displayName.toUpperCase()}</strong>
+      <span>${classConfig.role} · ${classConfig.hp} HP</span>
+    `
 
     const hex = (n: number) => '#' + n.toString(16).padStart(6, '0')
 
@@ -177,6 +186,8 @@ function showLoadout(
 
       overlay.querySelector<HTMLButtonElement>('.lo-fight')!.addEventListener('click', () => {
         hideCardPreview()
+        formPreviewHandle.dispose()
+        formPreview.remove()
         overlay.classList.remove('visible')
         overlay.addEventListener('transitionend', () => overlay.remove(), { once: true })
         resolve({ build, techniqueCard })
@@ -184,8 +195,18 @@ function showLoadout(
     }
 
     document.body.appendChild(overlay)
+    document.body.appendChild(formPreview)
+    const formPreviewHandle = createUnitPreview(formPreview.querySelector<HTMLElement>('.lo-form-stage')!, {
+      visual: classConfig.visual,
+      bodyColor: classConfig.bodyColor,
+      accentColor: classConfig.accentColor,
+      scale: 1.3,
+    })
     render()
-    requestAnimationFrame(() => overlay.classList.add('visible'))
+    requestAnimationFrame(() => {
+      overlay.classList.add('visible')
+      formPreview.classList.add('visible')
+    })
   })
 }
 

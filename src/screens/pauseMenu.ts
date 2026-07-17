@@ -37,8 +37,22 @@ export function initPauseMenu() {
   const syncMusic = initSlider('pm-music', 'pm-music-val',
     () => settings.musicVolume, v => { settings.musicVolume = v; music.setVolume(v) })
 
-  function open()  { syncSfx(); syncMusic(); overlay.classList.add('visible') }
-  function close() { overlay.classList.remove('visible') }
+  function open() {
+    syncSfx()
+    syncMusic()
+    overlay.inert = false
+    overlay.setAttribute('aria-hidden', 'false')
+    overlay.classList.add('visible')
+    btn.setAttribute('aria-expanded', 'true')
+    requestAnimationFrame(() => resume.focus())
+  }
+  function close(restoreFocus = true) {
+    overlay.classList.remove('visible')
+    overlay.setAttribute('aria-hidden', 'true')
+    overlay.inert = true
+    btn.setAttribute('aria-expanded', 'false')
+    if (restoreFocus && inGame()) btn.focus()
+  }
 
   const inGame = () => document.body.classList.contains('game-active')
 
@@ -47,7 +61,7 @@ export function initPauseMenu() {
     overlay.classList.contains('visible') ? close() : open()
   })
 
-  resume.addEventListener('click', close)
+  resume.addEventListener('click', () => close())
 
   toTitle.addEventListener('click', () => {
     clearCampaign()

@@ -1,6 +1,7 @@
 import type { StatusEffect, StatusKind } from './cards.js'
 import type { PlayerClass } from './classes.js'
 import type { IconShape } from '../engine/icons.js'
+import type { CandyVisual } from './visuals.js'
 
 export interface EnemyMove {
   name: string; type: 'attack' | 'defend' | 'heal'
@@ -34,6 +35,7 @@ export type EnemyTrait =
 
 export interface EnemyDef {
   name: string; bodyColor: number; accentColor: number; hp: number; moves: EnemyMove[]
+  visual: CandyVisual | 'original'
   traits?: EnemyTrait[]
 }
 
@@ -62,7 +64,7 @@ export interface EnemyArchetype {
 // ── Run-1 alternate variants — same wall-role as the default, different feel ──
 const WISP: EnemyDef = {
   // Immune alt — turtles behind a shield instead of rushing. Still checks Sour Ribbon.
-  name: 'Crimp', bodyColor: 0x6d28d9, accentColor: 0xc4b5fd, hp: 30,
+  name: 'Crimp', visual: 'violet-crinkle', bodyColor: 0x6d28d9, accentColor: 0xc4b5fd, hp: 30,
   traits: [{ kind: 'immune', statuses: ['poison', 'vulnerable', 'weak'] }],
   moves: [
     { name: 'Crinkle', type: 'attack', value: 5, color: 0xef4444, label: '🌀 Crinkle · 5 dmg', weight: 1.2 },
@@ -71,7 +73,7 @@ const WISP: EnemyDef = {
 }
 const HUSK: EnemyDef = {
   // Armored alt — glassier: thinner shield, heavier swings.
-  name: 'Hard Chew', bodyColor: 0x78350f, accentColor: 0xf59e0b, hp: 66,
+  name: 'Hard Chew', visual: 'hard-chew', bodyColor: 0x78350f, accentColor: 0xf59e0b, hp: 66,
   traits: [{ kind: 'armored', absorb: 2 }],
   moves: [
     { name: 'Knock', type: 'attack', value: 10, color: 0xef4444, label: '💥 Knock · 10 dmg', weight: 1 },
@@ -80,7 +82,7 @@ const HUSK: EnemyDef = {
 }
 const BLOOM: EnemyDef = {
   // Regen alt — leans on poison pressure rather than raw heals.
-  name: 'Juice Bloom', bodyColor: 0x064e3b, accentColor: 0x34d399, hp: 114,
+  name: 'Juice Bloom', visual: 'juice-bloom', bodyColor: 0x064e3b, accentColor: 0x34d399, hp: 114,
   traits: [{ kind: 'regen', hp: 7 }],
   moves: [
     { name: 'Drip',     type: 'attack', value: 8,  color: 0xef4444, label: '⚡ Drip · 8 dmg', weight: 1 },
@@ -98,7 +100,7 @@ export const ARCHETYPES: EnemyArchetype[] = [
       [
         {
           // T1 default — taught cheaply so the player meets immunity before it can kill.
-          name: 'The Crimp', bodyColor: 0xb45309, accentColor: 0xd97706, hp: 35,
+          name: 'The Crimp', visual: 'crimped-wrapper', bodyColor: 0xb45309, accentColor: 0xd97706, hp: 35,
           traits: [{ kind: 'immune', statuses: ['poison', 'vulnerable', 'weak'] }],
           moves: [
             { name: 'Pinch', type: 'attack', value: 4, color: 0xef4444, label: '🌀 Pinch · 4 dmg',  weight: 1 },
@@ -109,7 +111,7 @@ export const ARCHETYPES: EnemyArchetype[] = [
       ],
       [{
         // T2 — immunity that also defends. Sour Ribbon must lean on direct damage.
-        name: 'Sachet', bodyColor: 0x065f46, accentColor: 0x10b981, hp: 60,
+        name: 'Sachet', visual: 'sachet', bodyColor: 0x065f46, accentColor: 0x10b981, hp: 60,
         traits: [{ kind: 'immune', statuses: ['poison', 'vulnerable', 'weak'] }],
         moves: [
           { name: 'Trim',   type: 'attack', value: 9,  color: 0xef4444, label: '🌀 Trim · 9 dmg',         weight: 1.2 },
@@ -118,7 +120,7 @@ export const ARCHETYPES: EnemyArchetype[] = [
         ],
       }, {
         // T2 alt — immune glass cannon: no shield, all pressure. Race it down.
-        name: 'Flash Seal', bodyColor: 0x047857, accentColor: 0x6ee7b7, hp: 54,
+        name: 'Flash Seal', visual: 'flash-seal', bodyColor: 0x047857, accentColor: 0x6ee7b7, hp: 54,
         traits: [{ kind: 'immune', statuses: ['poison', 'vulnerable', 'weak'] }],
         moves: [
           { name: 'Glare', type: 'attack', value: 11, color: 0xef4444, label: '🌀 Glare · 11 dmg', weight: 1 },
@@ -127,7 +129,7 @@ export const ARCHETYPES: EnemyArchetype[] = [
       }],
       [{
         // T3 apex — immune AND armored. Burst bounces, status whiffs: pure direct grind.
-        name: 'Hard Seal', bodyColor: 0x1e3a8a, accentColor: 0x60a5fa, hp: 170,
+        name: 'Hard Seal', visual: 'hard-seal', bodyColor: 0x1e3a8a, accentColor: 0x60a5fa, hp: 170,
         traits: [{ kind: 'immune', statuses: ['poison', 'vulnerable', 'weak'] }, { kind: 'armored', absorb: 4 }],
         moves: [
           { name: 'Edge Tear', type: 'attack', value: 15, color: 0xef4444, label: '⚡ Edge Tear · 15 dmg',     weight: 1.1 },
@@ -136,7 +138,7 @@ export const ARCHETYPES: EnemyArchetype[] = [
         ],
       }, {
         // T3 apex alt — immune AND regen. Status whiffs and it heals: only burst answers.
-        name: 'Blank Pack', bodyColor: 0x155e75, accentColor: 0x67e8f9, hp: 175,
+        name: 'Blank Pack', visual: 'blank-pack', bodyColor: 0x155e75, accentColor: 0x67e8f9, hp: 175,
         traits: [{ kind: 'immune', statuses: ['poison', 'vulnerable', 'weak'] }, { kind: 'regen', hp: 7 }],
         moves: [
           { name: 'Blank',  type: 'attack', value: 16, color: 0xef4444, label: '💥 Blank · 16 dmg',  weight: 1 },
@@ -154,7 +156,7 @@ export const ARCHETYPES: EnemyArchetype[] = [
       [
         {
           // T1 default — hardens every turn.
-          name: 'Hard Set', bodyColor: 0x7f1d1d, accentColor: 0xb91c1c, hp: 70,
+          name: 'Hard Set', visual: 'hard-set', bodyColor: 0x7f1d1d, accentColor: 0xb91c1c, hp: 70,
           traits: [{ kind: 'armored', absorb: 3 }],
           moves: [
             { name: 'Thump',    type: 'attack', value: 8,  color: 0xef4444, label: '💥 Thump · 8 dmg',       weight: 1 },
@@ -166,7 +168,7 @@ export const ARCHETYPES: EnemyArchetype[] = [
       ],
       [{
         // T2 — heavier armor, harder hits. Burst bounces even more.
-        name: 'Brick Bite', bodyColor: 0x713f12, accentColor: 0xd97706, hp: 100,
+        name: 'Brick Bite', visual: 'brick-bite', bodyColor: 0x713f12, accentColor: 0xd97706, hp: 100,
         traits: [{ kind: 'armored', absorb: 4 }],
         moves: [
           { name: 'Press',    type: 'attack', value: 11, color: 0xef4444, label: '💥 Press · 11 dmg',        weight: 1 },
@@ -175,7 +177,7 @@ export const ARCHETYPES: EnemyArchetype[] = [
         ],
       }, {
         // T2 alt — turtle: stacks shields hard. Poison-through-armor is the only real progress.
-        name: 'Rind Wall', bodyColor: 0x854d0e, accentColor: 0xfacc15, hp: 105,
+        name: 'Rind Wall', visual: 'rind-wall', bodyColor: 0x854d0e, accentColor: 0xfacc15, hp: 105,
         traits: [{ kind: 'armored', absorb: 5 }],
         moves: [
           { name: 'Knock',   type: 'attack', value: 10, color: 0xef4444, label: '💥 Knock · 10 dmg',   weight: 0.9 },
@@ -185,7 +187,7 @@ export const ARCHETYPES: EnemyArchetype[] = [
       }],
       [{
         // T3 apex — armored AND regen. Only sustained poison-through-armor cracks it.
-        name: 'Gummy Vault', bodyColor: 0x4c1d95, accentColor: 0x8b5cf6, hp: 140,
+        name: 'Gummy Vault', visual: 'gummy-vault', bodyColor: 0x4c1d95, accentColor: 0x8b5cf6, hp: 140,
         traits: [{ kind: 'armored', absorb: 4 }, { kind: 'regen', hp: 7 }],
         moves: [
           { name: 'Crack',  type: 'attack', value: 14, color: 0xef4444, label: '💥 Crack · 14 dmg',      weight: 1 },
@@ -194,7 +196,7 @@ export const ARCHETYPES: EnemyArchetype[] = [
         ],
       }, {
         // T3 apex alt — armored AND immune. Burst bounces, status whiffs: grind it raw.
-        name: 'The Block', bodyColor: 0x1e293b, accentColor: 0x94a3b8, hp: 150,
+        name: 'The Block', visual: 'the-block', bodyColor: 0x1e293b, accentColor: 0x94a3b8, hp: 150,
         traits: [{ kind: 'armored', absorb: 5 }, { kind: 'immune', statuses: ['poison', 'vulnerable', 'weak'] }],
         moves: [
           { name: 'Mash',   type: 'attack', value: 16, color: 0xef4444, label: '💥 Mash · 16 dmg',     weight: 1 },
@@ -212,7 +214,7 @@ export const ARCHETYPES: EnemyArchetype[] = [
       [
         {
           // T1 default — regenerates every turn.
-          name: 'The Last Drop', bodyColor: 0x1e1b4b, accentColor: 0x4338ca, hp: 120,
+          name: 'The Last Drop', visual: 'last-drop', bodyColor: 0x1e1b4b, accentColor: 0x4338ca, hp: 120,
           traits: [{ kind: 'regen', hp: 6 }],
           moves: [
             { name: 'Drip', type: 'attack', value: 10, color: 0xef4444, label: '⚡ Drip · 10 dmg', weight: 1 },
@@ -226,7 +228,7 @@ export const ARCHETYPES: EnemyArchetype[] = [
       ],
       [{
         // T2 — fast regen, poisons back. Attrition loses outright; bring burst.
-        name: 'Refill', bodyColor: 0x134e4a, accentColor: 0x2dd4bf, hp: 160,
+        name: 'Refill', visual: 'refill-cartridge', bodyColor: 0x134e4a, accentColor: 0x2dd4bf, hp: 160,
         traits: [{ kind: 'regen', hp: 9 }],
         moves: [
           { name: 'Juice Rise',   type: 'attack', value: 13, color: 0xef4444, label: '⚡ Juice Rise · 13 dmg',      weight: 1 },
@@ -236,7 +238,7 @@ export const ARCHETYPES: EnemyArchetype[] = [
         ],
       }, {
         // T2 alt — regen behind heavy poison. Outpace its heals with burst; mind the stacks.
-        name: 'Tangle', bodyColor: 0x3f6212, accentColor: 0xa3e635, hp: 155,
+        name: 'Tangle', visual: 'licorice-tangle', bodyColor: 0x3f6212, accentColor: 0xa3e635, hp: 155,
         traits: [{ kind: 'regen', hp: 8 }],
         moves: [
           { name: 'Tangler',   type: 'attack', value: 12, color: 0xef4444, label: '⚡ Tangler · 12 dmg',      weight: 1 },
@@ -247,7 +249,7 @@ export const ARCHETYPES: EnemyArchetype[] = [
       }],
       [{
         // T3 apex — the final wall before the mirror. Heavy regen, big poison hits.
-        name: 'The Gulp', bodyColor: 0x500724, accentColor: 0xec4899, hp: 200,
+        name: 'The Gulp', visual: 'the-gulp', bodyColor: 0x500724, accentColor: 0xec4899, hp: 200,
         traits: [{ kind: 'regen', hp: 10 }],
         moves: [
           { name: 'Gulp',  type: 'attack', value: 18, color: 0xef4444, label: '💥 Gulp · 18 dmg',      weight: 1 },
@@ -257,7 +259,7 @@ export const ARCHETYPES: EnemyArchetype[] = [
         ],
       }, {
         // T3 apex alt — regen AND armored. Heals through chip, shields the spikes: hit hard in windows.
-        name: 'The Flood', bodyColor: 0x0c4a6e, accentColor: 0x38bdf8, hp: 200,
+        name: 'The Flood', visual: 'the-flood', bodyColor: 0x0c4a6e, accentColor: 0x38bdf8, hp: 200,
         traits: [{ kind: 'regen', hp: 9 }, { kind: 'armored', absorb: 3 }],
         moves: [
           { name: 'Flood',     type: 'attack', value: 19, color: 0xef4444, label: '💥 Flood · 19 dmg',     weight: 1 },
@@ -296,7 +298,7 @@ export function makeMirror(cls: PlayerClass, powerLevel: number): EnemyDef {
 
   if (cls === 'mage') {
     return {
-      name: 'THE ORIGINAL', ...MIRROR_COLOR, hp: s(150),
+      name: 'THE ORIGINAL', visual: 'original', ...MIRROR_COLOR, hp: s(150),
       moves: [
         { name: 'Original Citrus',  type: 'attack', value: s(16), color: 0xf97316, label: `🔥 Original Citrus · ${s(16)} dmg`, shape: 'fireball', weight: 1.2 },
         { name: 'Original Burst',    type: 'attack', value: s(24), color: 0xea580c, label: `💥 Original Burst · ${s(24)} dmg`,   shape: 'fireball', weight: 1 },
@@ -307,7 +309,7 @@ export function makeMirror(cls: PlayerClass, powerLevel: number): EnemyDef {
   }
   if (cls === 'rogue') {
     return {
-      name: 'THE ORIGINAL', ...MIRROR_COLOR, hp: s(160),
+      name: 'THE ORIGINAL', visual: 'original', ...MIRROR_COLOR, hp: s(160),
       traits: [{ kind: 'regen', hp: s(5) }],
       moves: [
         { name: 'Original Thread', type: 'attack', value: s(11), color: 0xa855f7, label: `🗡️ Original Thread · ${s(11)} dmg`, shape: 'slash', weight: 1.1 },
@@ -320,7 +322,7 @@ export function makeMirror(cls: PlayerClass, powerLevel: number): EnemyDef {
   }
   // warrior
   return {
-    name: 'THE ORIGINAL', ...MIRROR_COLOR, hp: s(180),
+    name: 'THE ORIGINAL', visual: 'original', ...MIRROR_COLOR, hp: s(180),
     traits: [{ kind: 'armored', absorb: s(3) }],
     moves: [
       { name: 'Original Cherry', type: 'attack', value: s(13), color: 0xef4444, label: `⚔️ Original Cherry · ${s(13)} dmg`, shape: 'strike', weight: 1.2 },

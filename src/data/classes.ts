@@ -1,3 +1,5 @@
+import type { FruitVisual } from './visuals.js'
+
 export type PlayerClass = 'warrior' | 'mage' | 'rogue'
 
 export interface ClassConfig {
@@ -10,6 +12,9 @@ export interface ClassConfig {
   techniqueCard: string
   tutorialHand: string[]
   deckPreview: string
+  visual: FruitVisual
+  bodyColor: number
+  accentColor: number
 }
 
 export const CLASS_CONFIGS: Record<PlayerClass, ClassConfig> = {
@@ -22,6 +27,9 @@ export const CLASS_CONFIGS: Record<PlayerClass, ClassConfig> = {
     techniqueCard: 'counter',
     tutorialHand: ['strike', 'strike', 'block', 'ward'],
     deckPreview: 'Cherry Pull pairs. Rind and Stillness buy time.',
+    visual: 'cherry-brick',
+    bodyColor: 0xdc2626,
+    accentColor: 0xfbbf24,
     deck: [
       'strike', 'strike', 'strike', 'strike',
       'slash', 'slash',
@@ -39,6 +47,9 @@ export const CLASS_CONFIGS: Record<PlayerClass, ClassConfig> = {
     techniqueCard: 'fuse',
     tutorialHand: ['fireball', 'fireball', 'block', 'ward'],
     deckPreview: 'Citrus Pop floods. Burst before the refill.',
+    visual: 'citrus-burst',
+    bodyColor: 0xf97316,
+    accentColor: 0xfde047,
     deck: [
       'fireball', 'fireball', 'fireball', 'fireball', 'fireball', 'fireball',
       'overload', 'overload',
@@ -55,6 +66,9 @@ export const CLASS_CONFIGS: Record<PlayerClass, ClassConfig> = {
     techniqueCard: 'leech',
     tutorialHand: ['slash', 'slash', 'block', 'ward'],
     deckPreview: 'Sour Thread pairs. Zing slips through rind.',
+    visual: 'sour-ribbon',
+    bodyColor: 0x84cc16,
+    accentColor: 0xf0abfc,
     deck: [
       'slash', 'slash', 'slash', 'slash', 'slash', 'slash',
       'overload', 'overload',

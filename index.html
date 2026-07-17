@@ -2,16 +2,31 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#0a0a12" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <title>Meld In Your Hand</title>
   <meta name="description" content="Lead the Fruit Front against Candy. Fuse matching pieces, hold your line, and break the perfect seal." />
   <meta property="og:title" content="Meld In Your Hand" />
   <meta property="og:description" content="A dead-serious snack war: the Fruit Front against Candy, fought one meld at a time." />
   <meta property="og:type" content="website" />
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%230a0a18'/><text x='16' y='24' text-anchor='middle' font-family='monospace' font-weight='900' font-size='22' fill='%236366f1'>M</text></svg>" />
+  <link rel="apple-touch-icon" href="./apple-touch-icon.png" />
   <style>
+    :root {
+      --safe-top: env(safe-area-inset-top, 0px);
+      --safe-right: env(safe-area-inset-right, 0px);
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+      --safe-left: env(safe-area-inset-left, 0px);
+    }
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    html, body { width: 100%; height: 100%; overflow: hidden; background: #0a0a12; }
+    html, body {
+      width: 100%; height: 100%; overflow: hidden; background: #0a0a12;
+      overscroll-behavior: none; -webkit-text-size-adjust: 100%;
+    }
+    body { -webkit-user-select: none; user-select: none; }
+    button, input, .card { -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
     canvas { display: block; }
 
     /* ── Hide all HUD until battle starts ───────────────────── */
@@ -49,7 +64,7 @@
     #hud {
       position: fixed; top: 0; left: 0; width: 100%;
       display: flex; justify-content: space-between; align-items: flex-start;
-      padding: 10px 16px 10px 72px; gap: 12px;
+      padding: calc(10px + var(--safe-top)) calc(16px + var(--safe-right)) 10px calc(72px + var(--safe-left)); gap: 12px;
       pointer-events: none; z-index: 10;
     }
 
@@ -337,14 +352,14 @@
 
     /* ── Card hand ───────────────────────────────────────────── */
     #hand {
-      position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%);
+      position: fixed; bottom: calc(18px + var(--safe-bottom)); left: 50%; transform: translateX(-50%);
       display: flex; gap: 10px; z-index: 10; perspective: 600px;
       transition: opacity .25s;
     }
     #hand.dimmed { opacity: .2; pointer-events: none; }
 
     #hold-slots {
-      position: fixed; bottom: 170px; left: 50%; transform: translateX(-50%);
+      position: fixed; bottom: calc(170px + var(--safe-bottom)); left: 50%; transform: translateX(-50%);
       z-index: 10; display: flex; gap: 8px; pointer-events: none;
     }
     .hold-slot {
@@ -388,6 +403,9 @@
     }
     .card:active { transform: translateY(-6px) scale(.97); }
     .card.disabled { opacity: .32; pointer-events: none; }
+    /* Hold costs no AP. Keep that single control live on an unaffordable card. */
+    .card.disabled.hold-ready { opacity: .68; pointer-events: auto; }
+    .card.disabled.hold-ready .hold-btn { background: rgba(99,102,241,.2); }
     .card.tutorial-locked { filter: grayscale(.4); }
     .card.tutorial-target {
       box-shadow: 0 0 0 1px #fcd34d, 0 0 36px rgba(245,158,11,.45), inset 0 1px 0 rgba(255,255,255,.1);
@@ -521,10 +539,16 @@
     @media (prefers-reduced-motion: reduce) {
       .ca-motif, .ca-motes { animation: none !important; }
     }
+    @media (hover: none) {
+      #card-preview { display: none !important; }
+      .card:hover, .card.tier-2:hover, .card.tier-3:hover {
+        transform: none; box-shadow: inherit; border-color: inherit;
+      }
+    }
 
     /* ── Energy pips ──────────────────────────────────────────── */
     #energy {
-      position: fixed; bottom: 212px; left: 50%; transform: translateX(-50%);
+      position: fixed; bottom: calc(212px + var(--safe-bottom)); left: 50%; transform: translateX(-50%);
       display: flex; align-items: center; gap: 10px; z-index: 10;
     }
     .energy-pip {
@@ -541,22 +565,22 @@
 
     /* ── AP bonus indicator ───────────────────────────────────── */
     #ap-bonus {
-      position: fixed; bottom: 196px; left: 50%; transform: translateX(-50%);
-      font: bold 11px/1 'Segoe UI', sans-serif; color: #6ee7b7; z-index: 10;
-      opacity: 0; transition: opacity .3s; white-space: nowrap;
+      position: fixed; bottom: calc(196px + var(--safe-bottom)); left: 50%; transform: translateX(-50%);
+      max-width: min(48vw, 460px); font: bold 11px/1 'Segoe UI', sans-serif; color: #6ee7b7; z-index: 10;
+      opacity: 0; transition: opacity .3s; text-align: center;
     }
     #ap-bonus.show { opacity: 1; }
 
     /* ── Deck info (bottom-left) ─────────────────────────────── */
     #deck-info {
-      position: fixed; bottom: 28px; left: 26px; z-index: 10; pointer-events: none;
+      position: fixed; bottom: calc(28px + var(--safe-bottom)); left: calc(26px + var(--safe-left)); z-index: 10; pointer-events: none;
       font: 12px/1.6 'Segoe UI', sans-serif; color: #4b5563;
     }
     #deck-info span { color: #6b7280; }
 
     /* ── End turn ─────────────────────────────────────────────── */
     #end-turn {
-      position: fixed; bottom: 26px; right: 26px; z-index: 10;
+      position: fixed; bottom: calc(26px + var(--safe-bottom)); right: calc(26px + var(--safe-right)); z-index: 10;
       padding: 10px 22px; font: bold 13px/1 'Segoe UI', sans-serif;
       background: #4f46e5; color: #fff; border: none; border-radius: 8px;
       cursor: pointer; transition: background .12s, opacity .2s;
@@ -997,11 +1021,37 @@
       box-shadow: 0 10px 28px rgba(99,102,241,.28);
     }
     .cs-icon     { width: 64px; height: 64px; margin: 0 auto 12px; display: block; }
+    .cs-unit-preview {
+      width: 174px; height: 124px; margin: -8px auto 8px;
+      pointer-events: none; overflow: visible;
+    }
+    .cs-unit-preview canvas { width: 100%; height: 100%; }
     .cs-name     { font: 900 15px/1 'Segoe UI', sans-serif; letter-spacing: .12em; margin-bottom: 4px; }
     .cs-role     { font: 700 10px/1 'Segoe UI', sans-serif; color: #818cf8; letter-spacing: .2em; margin-bottom: 10px; }
     .cs-stat     { font: 600 11px/1 'Segoe UI', sans-serif; color: #4b5563; margin-bottom: 10px; }
     .cs-preview  { font: 600 10px/1.4 'Segoe UI', sans-serif; color: #a5b4fc; min-height: 40px; margin-bottom: 8px; }
     .cs-flavor   { font: 400 10px/1.4 'Segoe UI', sans-serif; color: #6b7280; font-style: italic; }
+
+    .lo-form-preview {
+      position: fixed; z-index: 101;
+      left: max(18px, calc(50% - 610px)); top: 50%; transform: translateY(-50%);
+      width: 220px; height: 330px;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      color: #eef2ff; pointer-events: none;
+      opacity: 0; transition: opacity .3s ease;
+    }
+    .lo-form-preview.visible { opacity: 1; }
+    .lo-form-stage { width: 220px; height: 250px; }
+    .lo-form-stage canvas { width: 100%; height: 100%; }
+    .lo-form-preview strong {
+      font: 900 12px/1 'Segoe UI', sans-serif; letter-spacing: .16em;
+      text-shadow: 0 2px 12px rgba(0,0,0,.8);
+    }
+    .lo-form-preview span {
+      margin-top: 7px; color: rgba(103,232,249,.72);
+      font: 800 9px/1 ui-monospace, monospace; letter-spacing: .12em;
+    }
+    @media (max-width: 1099px) { .lo-form-preview { display: none; } }
 
     /* ── Evolution screen ────────────────────────────────────── */
     .evolution-overlay {
@@ -1185,8 +1235,8 @@
     }
     .cs-option {
       width: 220px !important;
-      min-height: 272px;
-      padding: 24px 18px 20px !important;
+      min-height: 332px;
+      padding: 12px 18px 20px !important;
       display: flex;
       flex-direction: column;
       justify-content: flex-start;
@@ -1372,13 +1422,10 @@
         padding-bottom: 22px !important;
       }
       .cs-option {
-        min-height: 250px;
-        padding-top: 20px !important;
+        min-height: 302px;
+        padding-top: 8px !important;
       }
-      .cs-icon {
-        width: 56px !important;
-        height: 56px !important;
-      }
+      .cs-unit-preview { height: 108px; }
       .lo-grid {
         margin-top: 10px !important;
         margin-bottom: 12px !important;
@@ -1430,7 +1477,8 @@
 
     /* ── Pause / escape menu ───────────────────────────── */
     #pause-btn {
-      position: fixed; top: 10px; left: 12px; z-index: 300;
+      position: fixed; top: calc(10px + var(--safe-top)); left: calc(12px + var(--safe-left)); z-index: 300;
+      min-width: 44px; min-height: 44px;
       background: transparent; border: 1px solid rgba(255,255,255,.1);
       color: rgba(255,255,255,.3); cursor: pointer;
       font: 16px/1 monospace; padding: 5px 9px; border-radius: 4px;
@@ -1482,6 +1530,33 @@
       font: 700 10px/1 'Courier New', monospace; color: #6ea3ff;
       width: 34px; text-align: right; flex-shrink: 0;
     }
+
+    /* ── iOS landscape contract ─────────────────────────────── */
+    #ios-landscape-lock {
+      display: none; position: fixed; inset: 0; z-index: 10000;
+      align-items: center; justify-content: center; padding: 28px;
+      background: radial-gradient(ellipse 80% 70% at 50% 44%, rgba(42,34,84,.54), rgba(5,5,14,.98) 72%);
+      color: #f8fafc; text-align: center;
+    }
+    .ios-lock-mark { color: #fcd34d; font: 900 13px/1 'Segoe UI', sans-serif; letter-spacing: .12em; }
+    .ios-lock-copy { margin-top: 12px; color: rgba(226,232,240,.72); font: 600 13px/1.45 'Segoe UI', sans-serif; }
+    @media (pointer: coarse) and (max-width: 900px) and (orientation: portrait) {
+      body.game-active #ios-landscape-lock { display: flex; }
+    }
+    @media (pointer: coarse) and (max-height: 540px) and (orientation: landscape) {
+      .hud-col { padding: 7px 10px; gap: 4px; }
+      .hp-bar-bg { width: min(21vw, 180px); }
+      #enemy-intent .intent-stack { max-width: min(280px, 34vw); }
+      #hand { bottom: calc(8px + var(--safe-bottom)); gap: 8px; }
+      .card { width: min(13.8vw, 116px); padding-bottom: 7px; }
+      .card-art { height: 58px; }
+      .merge-btn, .hold-btn { min-height: 34px; padding: 6px 0; }
+      #hold-slots { bottom: calc(166px + var(--safe-bottom)); }
+      #energy { bottom: calc(208px + var(--safe-bottom)); }
+      #ap-bonus { bottom: calc(187px + var(--safe-bottom)); font-size: 10px; }
+      #deck-info { bottom: calc(16px + var(--safe-bottom)); left: calc(16px + var(--safe-left)); font-size: 11px; }
+      #end-turn { min-height: 44px; bottom: calc(12px + var(--safe-bottom)); right: calc(16px + var(--safe-right)); padding: 0 16px; }
+    }
   </style>
 </head>
 <body>
@@ -1525,15 +1600,22 @@
 
   <div id="hit-vignette"></div>
 
-  <div id="game-over">
+  <div id="game-over" aria-hidden="true" inert>
     <h1 id="go-title"></h1>
     <p id="go-sub"></p>
     <button id="go-restart">Play Again</button>
   </div>
 
-  <button id="pause-btn" title="Menu (Esc)">≡</button>
+  <button id="pause-btn" title="Menu (Esc)" aria-controls="pause-overlay" aria-expanded="false">≡</button>
 
-  <div id="pause-overlay">
+  <div id="ios-landscape-lock" role="alert" aria-live="assertive">
+    <div>
+      <div class="ios-lock-mark">ROTATE TO PLAY</div>
+      <div class="ios-lock-copy">Landscape is required for this field operation.</div>
+    </div>
+  </div>
+
+  <div id="pause-overlay" aria-hidden="true" inert>
     <div class="pm-eyebrow">PAUSED</div>
     <button class="pm-btn" id="pm-resume">RESUME</button>
     <div class="pm-divider"></div>

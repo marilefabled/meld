@@ -17,6 +17,14 @@ npm run dev
 
 Open the local URL printed by Vite. The primary target is the browser build; Electron is secondary.
 
+## Browser Package
+
+```bash
+npm run package:web
+```
+
+This creates `dist/`, an installable landscape PWA with a web manifest and offline precache. Deploy `dist/` over HTTPS; on iOS, open it in Safari and use **Add to Home Screen**.
+
 ## The Loop
 
 - Spend 3 AP to play cards, defend, heal, and set up your next draw.

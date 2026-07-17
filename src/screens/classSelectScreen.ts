@@ -1,12 +1,5 @@
 import { CLASS_CONFIGS, type PlayerClass } from '../data/classes.js'
-import { CARD_DATA } from '../data/cards.js'
-import { buildIcon } from '../engine/icons.js'
-
-const CLASS_COLORS: Record<PlayerClass, number> = {
-  warrior: 0xef4444,
-  mage:    0xf97316,
-  rogue:   0xa855f7,
-}
+import { createUnitPreview, type UnitPreviewHandle } from '../view/unitPreview.js'
 
 export function showClassSelect({ mode = 'returning' }: { mode?: 'first-run' | 'returning' } = {}): Promise<PlayerClass> {
   return new Promise(resolve => {
@@ -24,10 +17,9 @@ export function showClassSelect({ mode = 'returning' }: { mode?: 'first-run' | '
       <div class="cs-options">
         ${classes.map(cls => {
           const cfg  = CLASS_CONFIGS[cls]
-          const sig  = CARD_DATA[cfg.signatureCard]
           return `
             <button class="cs-option" data-cls="${cls}">
-              <div class="cs-icon">${buildIcon(sig.shape, CLASS_COLORS[cls])}</div>
+              <div class="cs-unit-preview" data-unit-preview="${cls}" aria-hidden="true"></div>
               <div class="cs-name">${cfg.displayName.toUpperCase()}</div>
               <div class="cs-role">${cfg.role}</div>
               <div class="cs-stat">${cfg.hp} HP · ${cfg.deck.length} cards</div>
@@ -39,11 +31,27 @@ export function showClassSelect({ mode = 'returning' }: { mode?: 'first-run' | '
       </div>
     `
     document.body.appendChild(overlay)
+    const previews = new Map<PlayerClass, UnitPreviewHandle>()
+    for (const cls of classes) {
+      const cfg = CLASS_CONFIGS[cls]
+      const container = overlay.querySelector<HTMLElement>(`[data-unit-preview="${cls}"]`)!
+      previews.set(cls, createUnitPreview(container, {
+        visual: cfg.visual,
+        bodyColor: cfg.bodyColor,
+        accentColor: cfg.accentColor,
+        scale: 1.22,
+      }))
+    }
     requestAnimationFrame(() => overlay.classList.add('visible'))
 
     overlay.querySelectorAll<HTMLButtonElement>('.cs-option').forEach(btn => {
+      const cls = btn.dataset.cls as PlayerClass
+      btn.addEventListener('mouseenter', () => previews.get(cls)?.setEmphasis(true))
+      btn.addEventListener('mouseleave', () => previews.get(cls)?.setEmphasis(false))
+      btn.addEventListener('focus', () => previews.get(cls)?.setEmphasis(true))
+      btn.addEventListener('blur', () => previews.get(cls)?.setEmphasis(false))
       btn.addEventListener('click', () => {
-        const cls = btn.dataset.cls as PlayerClass
+        previews.forEach(preview => preview.dispose())
         overlay.classList.remove('visible')
         overlay.addEventListener('transitionend', () => overlay.remove(), { once: true })
         resolve(cls)

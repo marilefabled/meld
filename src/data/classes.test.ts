@@ -18,6 +18,9 @@ describe('CLASS_CONFIGS metadata', () => {
       expect(cfg.role.length).toBeGreaterThan(0)
       expect(cfg.flavor.length).toBeGreaterThan(0)
       expect(cfg.deckPreview.length).toBeGreaterThan(0)
+      expect(cfg.visual.length).toBeGreaterThan(0)
+      expect(cfg.bodyColor).toBeGreaterThan(0)
+      expect(cfg.accentColor).toBeGreaterThan(0)
     }
   })
 })
