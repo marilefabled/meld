@@ -38,6 +38,7 @@ function showLoadout(
   initialTechnique = 'overload',
 ): Promise<LoadoutChoice> {
   return new Promise(resolve => {
+    music.play('loadout')
     const classConfig = CLASS_CONFIGS[baseClass]
     const sourceCardIds = customCardIds ?? [...new Set(CLASS_CONFIGS[baseClass].deck)]
     const formTechnique = CLASS_CONFIGS[baseClass].techniqueCard
@@ -436,9 +437,9 @@ export async function showTitle() {
   }
 
   // ── Music ──────────────────────────────────────────────────────────────────
-  music.prime()
-  // Start after first user gesture (any click on the title screen)
-  document.addEventListener('click', () => music.start(), { once: true, passive: true })
+  // Score the title. Audio is gated on the first gesture; play() remembers this
+  // context and starts the moment the browser resumes the AudioContext.
+  music.play('title')
 
   // ── Title menus ────────────────────────────────────────────────────────────
   const menus = createMenuSystem()
@@ -503,7 +504,7 @@ export async function showTitle() {
         void continueSaved(saved)
       } }] : []),
       { type: 'button', label: saved ? 'OPEN ANOTHER BAG' : 'OPEN THE BAG', action: () => beginJourney() },
-      { type: 'button', label: 'COLLECTION',     action: async () => { await showShop() } },
+      { type: 'button', label: 'COLLECTION',     action: async () => { await showShop(); music.play('title') } },
       { type: 'button', label: 'HOW TO PLAY',    action: () => menus.push(howToPlay) },
       { type: 'button', label: 'SETTINGS',       action: () => menus.push(settingsMenu) },
     ],

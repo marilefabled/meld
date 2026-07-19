@@ -1,8 +1,10 @@
 import { CLASS_CONFIGS, type PlayerClass } from '../data/classes.js'
 import { createUnitPreview, type UnitPreviewHandle } from '../view/unitPreview.js'
+import { music } from '../music.js'
 
 export function showClassSelect({ mode = 'returning' }: { mode?: 'first-run' | 'returning' } = {}): Promise<PlayerClass> {
   return new Promise(resolve => {
+    music.play('class-select')
     const classes = Object.keys(CLASS_CONFIGS) as PlayerClass[]
     const firstRun = mode === 'first-run'
 

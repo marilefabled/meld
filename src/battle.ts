@@ -21,6 +21,8 @@ import { showRewardScreen, type Reward } from './screens/rewardScreen.js'
 import { showRivalOpening } from './screens/rivalDialogue.js'
 import { bountyFor } from './data/bounties.js'
 import { showBountyPoster } from './screens/bountyPosterScreen.js'
+import { music } from './music.js'
+import { battleContextForRun, mirrorContext } from './audio/soundtrack.js'
 import { progression } from './data/progression.js'
 import { saveCheckpoint, clearCheckpoint } from './data/campaign.js'
 import { buildTutorialOpeningDeck, type BattleTutorialConfig } from './data/tutorial.js'
@@ -35,6 +37,9 @@ export type { BattleTutorialConfig }
 
 export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom = 0, startPlayerHP, startRunFragments = 0, build = DEFAULT_BUILD, modifier = null, customDeck, encounters = ENCOUNTERS, isFinale = false, onVictory, onDefeat, isFirstRun = false, tutorial = null, powerLevel = 1, classesIn = [] as PlayerClass[], runNumber = 0 }: { playerClass?: PlayerClass; startFrom?: number; startPlayerHP?: number; startRunFragments?: number; build?: CardBuild; modifier?: Modifier | null; customDeck?: { cardId: string; tier: number }[]; encounters?: EnemyDef[]; isFinale?: boolean; onVictory?: () => void; onDefeat?: () => void; isFirstRun?: boolean; tutorial?: BattleTutorialConfig | null; powerLevel?: number; classesIn?: PlayerClass[]; runNumber?: number } = {}): { dispose: () => void } {
   const classConfig = CLASS_CONFIGS[playerClass]
+  // Score the fight: the run's combat bed, or the Mirror's theme for the finale
+  // (its remembered variant once the game has been looped).
+  music.play(isFinale ? mirrorContext(progression.state.cycles) : battleContextForRun(runNumber))
   // What the player has become: which off-class essences they've absorbed, and how
   // deeply they've strengthened. Drives the visual "marks" grafted onto the form.
   const absorbedForms = classesIn.filter((c, i) => i > 0 && c !== playerClass)
@@ -811,6 +816,7 @@ export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom 
     deck.shelve(makeCard(card.cardId, newTier))
 
     sfx.meld()
+    music.sting('meld')
     tweenCam(CP.meld, CP.mLook, 0.35)
     timer.after(0.9, () => tweenCam(CP.pIdle, CP.pLook, 0.5))
     const pos = player.group.position.clone()
@@ -2269,6 +2275,7 @@ export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom 
           clearCheckpoint()
           gameState.set('game_over')
           sfx.victory()
+          music.sting(isFinale ? 'victory' : 'run-cleared')
           victoryMoment(() => {
             $goTitle.textContent = isFinale ? 'THE BAG IS OPEN' : 'BAG OPENED'
             $goTitle.style.color = isFinale ? '#a78bfa' : '#22d3ee'
@@ -2286,6 +2293,7 @@ export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom 
       gameState.set('resting')
       timer.after(0.3, () => {
         sfx.defeat()
+        music.sting('defeat')
         defeatCollapse(() => {
           progression.recordRunEnd(false, encounterIdx)
           clearCheckpoint()

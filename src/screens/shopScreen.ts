@@ -2,6 +2,7 @@ import { CARD_DATA, TIER_ROMAN, type CardDef } from '../data/cards.js'
 import { cardArt } from '../engine/icons.js'
 import { progression } from '../data/progression.js'
 import { bigCardHTML, showCardPreview, hideCardPreview } from '../view/cardPreview.js'
+import { music } from '../music.js'
 
 const hex = (n: number) => '#' + n.toString(16).padStart(6, '0')
 
@@ -34,6 +35,7 @@ function buildItems(): ShopItem[] {
 
 export function showShop(): Promise<void> {
   return new Promise(resolve => {
+    music.play('collection')
     const items = buildItems()
     const overlay = document.createElement('div')
     overlay.className = 'shop-overlay'

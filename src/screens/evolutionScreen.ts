@@ -1,8 +1,10 @@
 import { getEvolutionOptions, type CampaignState, type EvolutionKind, TOTAL_RUNS } from '../data/campaign.js'
 import { CLASS_CONFIGS } from '../data/classes.js'
+import { music } from '../music.js'
 
 export function showEvolutionScreen(state: CampaignState): Promise<EvolutionKind> {
   return new Promise(resolve => {
+    music.play('evolution')
     const options = getEvolutionOptions(state)
     const runsLeft = TOTAL_RUNS - state.runNumber
     const formName = CLASS_CONFIGS[state.baseClass].displayName.toUpperCase()

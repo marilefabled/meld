@@ -1,7 +1,9 @@
 import { MODIFIERS, type Modifier } from '../data/modifiers.js'
+import { music } from '../music.js'
 
 export function showModifierScreen(): Promise<Modifier | null> {
   return new Promise(resolve => {
+    music.play('evolution')
     const offered = [...MODIFIERS].sort(() => Math.random() - 0.5).slice(0, 3)
 
     const overlay = document.createElement('div')
