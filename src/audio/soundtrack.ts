@@ -60,6 +60,14 @@ export const STINGERS: Record<StingerId, TrackDef> = {
   'defeat':      { cue: 'MTH-09', slug: 'stinger-defeat' },
 }
 
+/** A single opponent's personal theme: "The Crimp" → boss-the-crimp(.mp3).
+ *  Optional for every enemy — one that has no file falls back to its bag's bed. */
+export function opponentSlug(name: string): string {
+  return 'boss-' + name.toLowerCase().trim()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+}
+
 /** The combat bed for a run (0-indexed). The Mirror is separate — see mirrorContext. */
 export function battleContextForRun(runNumber: number): MusicContext {
   const r = Math.min(Math.max(runNumber, 0), 2)

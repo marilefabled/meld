@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
-  TRACKS, STINGERS, battleContextForRun, mirrorContext,
+  TRACKS, STINGERS, battleContextForRun, mirrorContext, opponentSlug,
   type MusicContext,
 } from './soundtrack.js'
+import { ARCHETYPES, makeMirror } from '../data/encounters.js'
 
 describe('soundtrack manifest', () => {
   it('maps every cue to a unique file and a real MTH id', () => {
@@ -27,6 +28,18 @@ describe('soundtrack manifest', () => {
     expect(mirrorContext(0)).toBe('mirror')
     expect(mirrorContext(1)).toBe('mirror-remembered')
     expect(mirrorContext(4)).toBe('mirror-remembered')
+  })
+
+  it('gives all 18 opponents a unique, file-safe theme slug', () => {
+    const names = ARCHETYPES.flatMap(a => a.tiers.flat()).map(d => d.name)
+    expect(names).toHaveLength(18)
+    const slugs = names.map(opponentSlug)
+    // A collision would make two bosses share one theme file.
+    expect(new Set(slugs).size, 'opponent slugs collide').toBe(slugs.length)
+    for (const s of slugs) expect(s).toMatch(/^boss-[a-z0-9-]+$/)
+    expect(opponentSlug('The Last Drop')).toBe('boss-the-last-drop')
+    // The Mirror is upper-case and still has to normalise cleanly.
+    expect(opponentSlug(makeMirror('warrior', 1).name)).toBe('boss-the-original')
   })
 
   it('resolves every context the helpers can return', () => {

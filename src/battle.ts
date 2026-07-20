@@ -37,9 +37,7 @@ export type { BattleTutorialConfig }
 
 export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom = 0, startPlayerHP, startRunFragments = 0, build = DEFAULT_BUILD, modifier = null, customDeck, encounters = ENCOUNTERS, isFinale = false, onVictory, onDefeat, isFirstRun = false, tutorial = null, powerLevel = 1, classesIn = [] as PlayerClass[], runNumber = 0 }: { playerClass?: PlayerClass; startFrom?: number; startPlayerHP?: number; startRunFragments?: number; build?: CardBuild; modifier?: Modifier | null; customDeck?: { cardId: string; tier: number }[]; encounters?: EnemyDef[]; isFinale?: boolean; onVictory?: () => void; onDefeat?: () => void; isFirstRun?: boolean; tutorial?: BattleTutorialConfig | null; powerLevel?: number; classesIn?: PlayerClass[]; runNumber?: number } = {}): { dispose: () => void } {
   const classConfig = CLASS_CONFIGS[playerClass]
-  // Score the fight: the run's combat bed, or the Mirror's theme for the finale
-  // (its remembered variant once the game has been looped).
-  music.play(isFinale ? mirrorContext(progression.state.cycles) : battleContextForRun(runNumber))
+  // (music is set per-encounter in startEncounter — each opponent can have a theme)
   // What the player has become: which off-class essences they've absorbed, and how
   // deeply they've strengthened. Drives the visual "marks" grafted onto the form.
   const absorbedForms = classesIn.filter((c, i) => i > 0 && c !== playerClass)
@@ -1707,6 +1705,11 @@ export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom 
     updateHoldSlots()
     const def = encounters[idx]
     encounterIdx = idx
+    // Score this opponent: its personal theme if one exists, otherwise this bag's
+    // combat bed, otherwise the pad. The Mirror keeps its own theme.
+    music.play(isFinale
+      ? mirrorContext(progression.state.cycles)
+      : { opponent: def.name, fallback: battleContextForRun(runNumber) })
     ENEMY_MOVES = def.moves
     enemyTraits = def.traits ?? []
     lastMoveName = ''

@@ -1,29 +1,36 @@
 // Adaptive soundtrack engine.
 //
 // Two layers under one user-controlled master:
-//   • Beds — one looping track per context (title, battle, mirror, …). They
-//     crossfade directly track→track when both files exist.
+//   • Beds — a looping track for the current moment. A request resolves to an
+//     ordered chain of candidates and the engine plays the first one that exists:
+//     an opponent's personal theme → that bag's combat bed → the pad. So a boss
+//     with no theme quietly uses its bag's music, and a bag with no music uses
+//     the pad. Nothing ever goes silent.
 //   • The pad — a procedural A-minor drone (the workbook's MTH-16 ambient bed).
-//     It is the graceful fallback: whenever a context has no audio file yet, or a
-//     file fails to load, the current bed dissolves into the pad instead of going
-//     silent. The game ships with no audio files, so today the pad scores
-//     everything; each Suno export you drop in public/audio/ takes over its
-//     context automatically (see audio/soundtrack.ts).
+//     The end of every chain. The game ships with zero audio files, so today the
+//     pad scores everything; each Suno export dropped into public/audio/ takes
+//     over its slot automatically (see audio/soundtrack.ts).
 //   • Stingers — one-shot swells (meld, victory, …) layered over the bed. Silent
 //     until their file exists.
 //
-// Autoplay policy: prime() early (no gesture needed), then play(context). Audio is
+// Autoplay policy: prime() early (no gesture needed), then play(). Audio is
 // blocked until the first user gesture resumes the AudioContext; the desired
-// context is remembered and applied the moment it resumes.
+// chain is remembered and applied the moment it resumes.
 
 import { settings } from './settings.js'
-import { TRACKS, STINGERS, type MusicContext, type StingerId } from './audio/soundtrack.js'
+import {
+  TRACKS, STINGERS, opponentSlug,
+  type MusicContext, type StingerId,
+} from './audio/soundtrack.js'
+
+/** Either a plain context, or an opponent theme that falls back to a context. */
+export type MusicRequest = MusicContext | { opponent: string; fallback: MusicContext }
 
 const AUDIO_EXT = 'mp3'
 
 // Gain staging. master = musicVolume (0..1). Each layer sits below it through a
 // constant trim, then a crossfade "mix" gain (0..1) the engine ramps.
-const PAD_TRIM     = 0.14   // procedural pad — quiet ambient bed (matches old level)
+const PAD_TRIM     = 0.14   // procedural pad — quiet ambient bed
 const TRACK_TRIM   = 0.32   // mastered tracks are near full-scale; hold headroom
 const STINGER_TRIM = 0.5
 const XFADE        = 1.4    // seconds, bed crossfades
@@ -38,11 +45,8 @@ const PARTIALS: { freq: number; gain: number; detune: number }[] = [
   { freq: 329.63, gain: 0.06, detune:  6 },
 ]
 
-interface Bed {
-  ctx:  MusicContext
-  el:   HTMLAudioElement
-  mix:  GainNode        // crossfade gain, 0..1
-}
+interface BedSpec { key: string; slug: string; gain: number }
+interface Bed     { key: string; el: HTMLAudioElement; mix: GainNode }
 
 let _ctx:      AudioContext | null = null
 let _master:   GainNode | null = null
@@ -52,15 +56,30 @@ let _lfo:      OscillatorNode | null = null
 let _padBuilt = false
 let _primed   = false
 
-let _bed:      Bed | null = null           // the audible track, if any
-let _desired:  MusicContext | null = null  // where we want to be
-const _beds    = new Map<MusicContext, Bed>()  // reused per context
-const _stinger = new Map<StingerId, AudioBuffer | null>()  // null = known-missing
+let _bed:   Bed | null = null    // the audible track, if any
+let _chain: BedSpec[] = []       // candidates for where we want to be
+let _token  = 0                  // bumped per request; cancels in-flight loads
+const _beds    = new Map<string, Bed>()
+const _missing = new Set<string>()   // slugs known 404/undecodable this session
+const _stinger = new Map<StingerId, AudioBuffer | null>()
 
 function audioUrl(slug: string): string {
   // Resolves against <base>/document location, so it survives base:'./' and any
   // deploy path (the PWA can live at a subpath).
   return new URL(`audio/${slug}.${AUDIO_EXT}`, document.baseURI).href
+}
+
+// A request becomes the ordered list of files to try before giving up to the pad.
+function specsFor(req: MusicRequest): BedSpec[] {
+  if (typeof req === 'string') {
+    const t = TRACKS[req]
+    return [{ key: req, slug: t.slug, gain: t.gain ?? 1 }]
+  }
+  const fb = TRACKS[req.fallback]
+  return [
+    { key: `opponent:${req.opponent}`, slug: opponentSlug(req.opponent), gain: 1 },
+    { key: req.fallback, slug: fb.slug, gain: fb.gain ?? 1 },
+  ]
 }
 
 function ensureCtx(): AudioContext {
@@ -112,8 +131,7 @@ function ramp(g: GainNode, to: number, secs = XFADE) {
   g.gain.linearRampToValueAtTime(to, c.currentTime + secs)
 }
 
-// Fade the current bed down to the pad — the safe resting state for a context
-// with no track. Used on load failure and when leaving a scored context.
+// End of every chain: dissolve whatever is playing into the ambient pad.
 function fadeToPad() {
   buildPad(_ctx!)
   ramp(_padMix!, 1)
@@ -125,35 +143,36 @@ function fadeToPad() {
   }
 }
 
-function bedFor(ctx: MusicContext): Bed {
-  let bed = _beds.get(ctx)
+function bedFor(spec: BedSpec): Bed {
+  let bed = _beds.get(spec.key)
   if (bed) return bed
   const c = _ctx!
   const el = new Audio()
-  el.src = audioUrl(TRACKS[ctx].slug)
+  el.src = audioUrl(spec.slug)
   el.loop = true
   el.preload = 'auto'
-  el.crossOrigin = 'anonymous'
   const src = c.createMediaElementSource(el)
   const mix = c.createGain()
   mix.gain.value = 0
   // Bake the per-track trim into a fixed node; `mix` stays a clean 0..1 crossfade.
   const trim = c.createGain()
-  trim.gain.value = TRACK_TRIM * (TRACKS[ctx].gain ?? 1)
+  trim.gain.value = TRACK_TRIM * spec.gain
   src.connect(trim); trim.connect(mix); mix.connect(_master!)
-  bed = { ctx, el, mix }
-  _beds.set(ctx, bed)
+  bed = { key: spec.key, el, mix }
+  _beds.set(spec.key, bed)
   return bed
 }
 
-// Try to bring `ctx`'s track in. If its file is unreachable, fall to the pad.
-function applyDesired() {
-  const ctx = _desired
-  if (!ctx || !_ctx || _ctx.state !== 'running') return
-  if (_bed?.ctx === ctx) return
+// Walk the chain from `i`, playing the first candidate whose file loads.
+function applyChain(i: number, token: number) {
+  if (token !== _token || !_ctx || _ctx.state !== 'running') return
+  const spec = _chain[i]
+  if (!spec) { fadeToPad(); return }                       // exhausted → pad
+  if (_bed?.key === spec.key) return                       // already on it
+  if (_missing.has(spec.slug)) { applyChain(i + 1, token); return }
 
-  const incoming = bedFor(ctx)
-  const el = incoming.el
+  const bed = bedFor(spec)
+  const el  = bed.el
   let settled = false
   let failTimer = 0
   const listeners: [string, () => void][] = []
@@ -168,24 +187,25 @@ function applyDesired() {
     if (settled) return
     settled = true
     cleanup()
-    if (_desired !== ctx) return            // context changed while loading
+    if (token !== _token) return                           // superseded while loading
     const outgoing = _bed
     el.play().then(() => {
-      ramp(incoming.mix, 1)
+      ramp(bed.mix, 1)
       ramp(_padMix!, 0)
-      if (outgoing && outgoing !== incoming) {
+      if (outgoing && outgoing !== bed) {
         ramp(outgoing.mix, 0)
         setTimeout(() => { try { outgoing.el.pause() } catch {} }, XFADE * 1000 + 60)
       }
-      _bed = incoming
-    }).catch(() => { if (_desired === ctx) fadeToPad() })
+      _bed = bed
+    }).catch(() => { if (token === _token) applyChain(i + 1, token) })
   }
 
   const onFail = () => {
     if (settled) return
     settled = true
     cleanup()
-    if (_desired === ctx) fadeToPad()       // no file / unreachable → ambient bed
+    _missing.add(spec.slug)        // remember the miss; skip it instantly next time
+    if (token === _token) applyChain(i + 1, token)
   }
 
   if (el.readyState >= 3 /* HAVE_FUTURE_DATA */) { activate(); return }
@@ -207,20 +227,25 @@ export const music = {
     _primed = true
     const c = ensureCtx()
     const resume = () => {
-      if (c.state !== 'suspended') { applyDesired(); return }
-      c.resume().then(applyDesired).catch(() => {})
+      if (c.state !== 'suspended') { applyChain(0, _token); return }
+      c.resume().then(() => applyChain(0, _token)).catch(() => {})
     }
     // Retry on each of the first few gestures until the browser lets audio run.
     document.addEventListener('pointerdown', resume, { passive: true })
     document.addEventListener('keydown', resume, { passive: true })
   },
 
-  /** Score a context. Crossfades to its track, or to the pad if it has no file. */
-  play(ctx: MusicContext) {
+  /**
+   * Score a moment. Pass a context, or an opponent + the context to fall back to:
+   *   music.play('title')
+   *   music.play({ opponent: 'The Crimp', fallback: 'battle-1' })
+   */
+  play(req: MusicRequest) {
     _primed || music.prime()
-    _desired = ctx
-    if (_ctx?.state === 'running') applyDesired()
-    else _ctx?.resume().then(applyDesired).catch(() => {})
+    _chain = specsFor(req)
+    const token = ++_token
+    if (_ctx?.state === 'running') applyChain(0, token)
+    else _ctx?.resume().then(() => applyChain(0, token)).catch(() => {})
   },
 
   /** Layer a one-shot over the bed. No-op until its file exists. */
@@ -255,8 +280,8 @@ export const music = {
       try { c.close() } catch {}
       if (_ctx === c) {
         _ctx = _master = _padMix = _lfo = null
-        _oscs = []; _bed = null; _desired = null
-        _beds.clear(); _stinger.clear()
+        _oscs = []; _bed = null; _chain = []
+        _beds.clear(); _stinger.clear(); _missing.clear()
         _padBuilt = _primed = false
       }
     }, 1400)

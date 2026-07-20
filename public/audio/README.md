@@ -34,6 +34,23 @@ Sound Direction sheet) so the crossfades between contexts blend.
 | `dialogue.mp3` | MTH-13 | (reserved — herald / dialogue bed) |
 | `cutscene.mp3` | MTH-11 | (reserved — memory cutscenes) |
 
+## Opponent themes — optional, one per boss
+
+Any of the 18 gauntlet opponents can have its own theme. Drop the file in and that
+fight scores itself; leave it out and the fight uses its bag's bed above. **Fully
+optional — you can do one, or all eighteen.** No cue in the workbook; write your own
+prompt (keep it in A minor so it blends with the rest).
+
+| Bag | Sealed 🔒 | Hard-Set 🧱 | Refilling 💧 |
+| --- | --- | --- | --- |
+| 1 | `boss-the-crimp.mp3`<br>`boss-crimp.mp3` | `boss-hard-set.mp3`<br>`boss-hard-chew.mp3` | `boss-the-last-drop.mp3`<br>`boss-juice-bloom.mp3` |
+| 2 | `boss-sachet.mp3`<br>`boss-flash-seal.mp3` | `boss-brick-bite.mp3`<br>`boss-rind-wall.mp3` | `boss-refill.mp3`<br>`boss-tangle.mp3` |
+| 3 | `boss-hard-seal.mp3`<br>`boss-blank-pack.mp3` | `boss-gummy-vault.mp3`<br>`boss-the-block.mp3` | `boss-the-gulp.mp3`<br>`boss-the-flood.mp3` |
+
+First name in each cell is the default (met on a first run); the second is the alt
+variant that rotates in on later cycles. The Original uses `mirror.mp3` above, not a
+`boss-` file.
+
 ## Stingers — one-shots layered over the bed
 
 | File | Cue | Fires on |
