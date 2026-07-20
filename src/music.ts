@@ -23,8 +23,10 @@ import {
   type MusicContext, type StingerId,
 } from './audio/soundtrack.js'
 
-/** Either a plain context, or an opponent theme that falls back to a context. */
-export type MusicRequest = MusicContext | { opponent: string; fallback: MusicContext }
+/** Either a plain context, or an ordered list of opponent themes (first with a
+ *  file wins) that falls back to a context. `opponents` is usually a whole bag —
+ *  the current opponent first, then its bag-mates (see bagThemeOrder). */
+export type MusicRequest = MusicContext | { opponents: string[]; fallback: MusicContext }
 
 const AUDIO_EXT = 'mp3'
 
@@ -77,7 +79,7 @@ function specsFor(req: MusicRequest): BedSpec[] {
   }
   const fb = TRACKS[req.fallback]
   return [
-    { key: `opponent:${req.opponent}`, slug: opponentSlug(req.opponent), gain: 1 },
+    ...req.opponents.map(name => ({ key: `opponent:${name}`, slug: opponentSlug(name), gain: 1 })),
     { key: req.fallback, slug: fb.slug, gain: fb.gain ?? 1 },
   ]
 }

@@ -22,7 +22,7 @@ import { showRivalOpening } from './screens/rivalDialogue.js'
 import { bountyFor } from './data/bounties.js'
 import { showBountyPoster } from './screens/bountyPosterScreen.js'
 import { music } from './music.js'
-import { battleContextForRun, mirrorContext } from './audio/soundtrack.js'
+import { battleContextForRun, mirrorContext, bagThemeOrder } from './audio/soundtrack.js'
 import { progression } from './data/progression.js'
 import { saveCheckpoint, clearCheckpoint } from './data/campaign.js'
 import { buildTutorialOpeningDeck, type BattleTutorialConfig } from './data/tutorial.js'
@@ -1705,11 +1705,11 @@ export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom 
     updateHoldSlots()
     const def = encounters[idx]
     encounterIdx = idx
-    // Score this opponent: its personal theme if one exists, otherwise this bag's
-    // combat bed, otherwise the pad. The Mirror keeps its own theme.
+    // Score this opponent: its own theme if it has one, else a bag-mate's theme,
+    // else this bag's combat bed, else the pad. The Mirror keeps its own theme.
     music.play(isFinale
       ? mirrorContext(progression.state.cycles)
-      : { opponent: def.name, fallback: battleContextForRun(runNumber) })
+      : { opponents: bagThemeOrder(encounters.map(e => e.name), def.name), fallback: battleContextForRun(runNumber) })
     ENEMY_MOVES = def.moves
     enemyTraits = def.traits ?? []
     lastMoveName = ''

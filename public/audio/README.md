@@ -37,9 +37,11 @@ Sound Direction sheet) so the crossfades between contexts blend.
 ## Opponent themes — optional, one per boss
 
 Any of the 18 gauntlet opponents can have its own theme. Drop the file in and that
-fight scores itself; leave it out and the fight uses its bag's bed above. **Fully
-optional — you can do one, or all eighteen.** No cue in the workbook; write your own
-prompt (keep it in A minor so it blends with the rest).
+fight scores itself. **A theme also covers its bag-mates:** a fight whose own theme
+you haven't made yet borrows another finished theme from the same bag (then the bag
+bed above, then the pad). So one song per bag already gives every fight in that bag
+real battle music — do one, some, or all eighteen. No cue in the workbook; write
+your own prompt (keep it in A minor so it blends with the rest).
 
 | Bag | Sealed 🔒 | Hard-Set 🧱 | Refilling 💧 |
 | --- | --- | --- | --- |

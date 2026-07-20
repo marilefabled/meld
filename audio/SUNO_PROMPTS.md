@@ -13,10 +13,12 @@ just toggle **Instrumental ON** where it says so.
 - Screen-bed style strings are the original workbook prompts (unchanged); opponent
   prompts are new, built on each one's voice + its wall's timbre.
 
-**Bag beds vs. opponent themes:** an opponent's own theme *replaces* its bag bed for
-that fight. So you can do this the quick way (just `battle-1/2/3`, three tracks cover
-all nine fights) or the full way (a theme per opponent, and the bag beds become the
-fallback for later-cycle variants). Both are wired.
+**Opponent themes *are* the battle music.** An opponent's theme replaces its bag bed
+for that fight — and covers its bag-mates too: a fight whose own theme isn't made yet
+borrows another finished theme from the same bag (then the `battle-1/2/3` bed, then
+the pad). So one song per bag already scores every fight in that bag; a per-opponent
+theme just makes each fight bespoke. The `battle-1/2/3` beds are now an optional
+deeper fallback — skip them if you're doing per-opponent themes.
 
 ---
 

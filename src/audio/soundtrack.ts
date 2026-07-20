@@ -61,11 +61,19 @@ export const STINGERS: Record<StingerId, TrackDef> = {
 }
 
 /** A single opponent's personal theme: "The Crimp" → boss-the-crimp(.mp3).
- *  Optional for every enemy — one that has no file falls back to its bag's bed. */
+ *  Optional for every enemy — one that has no file falls back to a bag-mate's
+ *  theme, then the bag's bed, then the pad (see bagThemeOrder). */
 export function opponentSlug(name: string): string {
   return 'boss-' + name.toLowerCase().trim()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
+}
+
+/** The order to try opponent themes for one fight: this opponent first, then its
+ *  bag-mates in encounter order. The engine plays the first that has a file, so a
+ *  few themes cover a whole bag — theme songs *are* the battle music. */
+export function bagThemeOrder(bagNames: string[], currentName: string): string[] {
+  return [currentName, ...bagNames.filter(n => n !== currentName)]
 }
 
 /** The combat bed for a run (0-indexed). The Mirror is separate — see mirrorContext. */

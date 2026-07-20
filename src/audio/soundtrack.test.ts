@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  TRACKS, STINGERS, battleContextForRun, mirrorContext, opponentSlug,
+  TRACKS, STINGERS, battleContextForRun, mirrorContext, opponentSlug, bagThemeOrder,
   type MusicContext,
 } from './soundtrack.js'
 import { ARCHETYPES, makeMirror } from '../data/encounters.js'
@@ -40,6 +40,16 @@ describe('soundtrack manifest', () => {
     expect(opponentSlug('The Last Drop')).toBe('boss-the-last-drop')
     // The Mirror is upper-case and still has to normalise cleanly.
     expect(opponentSlug(makeMirror('warrior', 1).name)).toBe('boss-the-original')
+  })
+
+  it('tries the current opponent first, then bag-mates in order', () => {
+    const bag = ['Sachet', 'Brick Bite', 'Refill']
+    // A themeless fight still leads with itself, so its own theme wins if present…
+    expect(bagThemeOrder(bag, 'Brick Bite')).toEqual(['Brick Bite', 'Sachet', 'Refill'])
+    // …then borrows a bag-mate. First in the bag with a file wins in the engine.
+    expect(bagThemeOrder(bag, 'Sachet')).toEqual(['Sachet', 'Brick Bite', 'Refill'])
+    // No duplicate of the current opponent even though it's in the bag list.
+    expect(bagThemeOrder(bag, 'Refill').filter(n => n === 'Refill')).toHaveLength(1)
   })
 
   it('resolves every context the helpers can return', () => {
