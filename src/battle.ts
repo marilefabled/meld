@@ -866,22 +866,26 @@ export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom 
     const meldDraw = 1 + (modifier?.meldDrawBonus ?? 0)
     deck.draw(Math.min(meldDraw, deck.drawPile.length))
 
+    // Say what the meld actually bought. The new card goes to the discard and
+    // returns on the next reshuffle, so the flash used to be the whole payoff —
+    // and it only named the card ("…MADE · BIGGER CARD, SAME WOUND"). Now it
+    // shows the new value, and the first meld explains where the card went.
+    const made = getVariant(def, newTier, build, card.cardId)
+    const madeLine = `${def.name.toUpperCase()} ${TIER_ROMAN[newTier]} · ${made.desc(Math.round(made.value * powerLevel))}`
+    const meldLine = completedTutorialMeld
+      ? `${madeLine} — shuffled into your deck. It comes back.`
+      : madeLine
     if (el1 && el2 && rect1 && rect2) {
       setAnimating(true)
       $hand.innerHTML = ''
       playMeldAnimation(el1, el2, rect1, rect2, def, newTier, card.cardId, () => {
         setAnimating(false)
         renderHand(true)
-        timer.after(0.15, () => flash(
-          completedTutorialMeld
-            ? `${def.name.toUpperCase()} ${TIER_ROMAN[newTier]} MADE · BIGGER CARD, SAME WOUND`
-            : `${def.name.toUpperCase()} ${TIER_ROMAN[newTier]} MADE`,
-          completedTutorialMeld ? 2.0 : 1.0,
-        ))
+        timer.after(0.15, () => flash(meldLine, completedTutorialMeld ? 2.4 : 1.1))
       })
     } else {
       renderHand(true)
-      flash(`${def.name.toUpperCase()} ${TIER_ROMAN[newTier]} MADE`, 1.0)
+      flash(meldLine, 1.1)
     }
   }
 

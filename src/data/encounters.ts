@@ -214,8 +214,8 @@ export const ARCHETYPES: EnemyArchetype[] = [
       [
         {
           // T1 default — regenerates every turn.
-          name: 'The Last Drop', visual: 'last-drop', bodyColor: 0x1e1b4b, accentColor: 0x4338ca, hp: 120,
-          traits: [{ kind: 'regen', hp: 6 }],
+          name: 'The Last Drop', visual: 'last-drop', bodyColor: 0x1e1b4b, accentColor: 0x4338ca, hp: 104,
+          traits: [{ kind: 'regen', hp: 5 }],
           moves: [
             { name: 'Drip', type: 'attack', value: 10, color: 0xef4444, label: '⚡ Drip · 10 dmg', weight: 1 },
             { name: 'Sour Burst',     type: 'attack', value: 15, color: 0xdc2626, label: '💀 Sour Burst · 15 dmg + poison',
