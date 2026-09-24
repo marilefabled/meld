@@ -92,9 +92,9 @@ const CSS = `
 .ms-card.is-visible { opacity: 1; transform: translateY(0) scale(1); }
 
 .ms-title {
-  font-family:'Courier New',monospace; font-size:.78rem; font-weight:bold;
-  letter-spacing:.42em; text-transform:uppercase;
-  color:rgba(160,190,255,.55); text-align:center;
+  font-family:var(--font-display); font-size:1.05rem; font-weight:800;
+  letter-spacing:.06em; text-transform:uppercase;
+  color:rgba(200,215,255,.86); text-align:center;
   margin:0 0 24px;
 }
 
@@ -106,9 +106,9 @@ const CSS = `
   padding:13px 20px;
   background:transparent;
   border:1px solid transparent; border-radius:6px;
-  color:rgba(195,210,255,.7);
-  font-family:'Courier New',monospace; font-size:.86rem;
-  letter-spacing:.16em; text-transform:uppercase; text-align:center;
+  color:rgba(210,222,255,.86);
+  font-family:var(--font-ui); font-size:.9rem; font-weight:700;
+  letter-spacing:.14em; text-transform:uppercase; text-align:center;
   cursor:pointer; user-select:none;
   transition:background .1s, border-color .1s, color .1s, box-shadow .1s;
 }
@@ -134,7 +134,7 @@ const CSS = `
 }
 .ms-row__label {
   color:rgba(195,210,255,.72);
-  font-family:'Courier New',monospace; font-size:.84rem;
+  font-family:var(--font-ui); font-size:.84rem;
   letter-spacing:.12em; text-transform:uppercase; flex-shrink:0;
 }
 .ms-row__ctrl { display:flex; align-items:center; gap:9px; flex-shrink:0; }
@@ -158,7 +158,7 @@ const CSS = `
   background:#6ea3ff; border:none; cursor:pointer;
 }
 .ms-value {
-  color:#6ea3ff; font-family:'Courier New',monospace; font-size:.78rem;
+  color:#6ea3ff; font-family:var(--font-ui); font-size:.78rem;
   letter-spacing:.06em; min-width:3.2ch; text-align:right;
   font-variant-numeric:tabular-nums;
 }
@@ -188,22 +188,22 @@ const CSS = `
 /* Select */
 .ms-cycle-btn {
   background:transparent; border:none; padding:0 3px; line-height:1;
-  color:rgba(130,160,255,.45); font-family:'Courier New',monospace;
+  color:rgba(130,160,255,.45); font-family:var(--font-ui);
   font-size:.95rem; cursor:pointer;
   transition:color .1s;
 }
 .ms-cycle-btn:hover { color:#6ea3ff; }
 .ms-select-val {
-  color:#6ea3ff; font-family:'Courier New',monospace; font-size:.78rem;
+  color:#6ea3ff; font-family:var(--font-ui); font-size:.78rem;
   letter-spacing:.08em; min-width:5.5em; text-align:center;
 }
 
 /* Header + separator */
 .ms-hdr {
   padding:14px 20px 4px;
-  font-family:'Courier New',monospace; font-size:.6rem;
-  letter-spacing:.4em; text-transform:uppercase;
-  color:rgba(120,155,255,.38);
+  font-family:var(--font-ui); font-size:.68rem; font-weight:700;
+  letter-spacing:.32em; text-transform:uppercase;
+  color:rgba(165,190,255,.72);
 }
 .ms-sep {
   height:1px; background:rgba(120,155,255,.12);

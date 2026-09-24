@@ -40,13 +40,13 @@ function injectStyles() {
 
     .bn-head { display: flex; align-items: baseline; justify-content: space-between; gap: 14px; }
     .bn-wanted {
-      color: #9f1239; font: 900 34px/1 'Segoe UI', sans-serif; letter-spacing: .2em; text-transform: uppercase;
+      color: #9f1239; font: 800 40px/1 var(--font-display); letter-spacing: .08em; text-transform: uppercase;
       text-shadow: 1px 1px 0 rgba(255,255,255,.34);
     }
-    .bn-file { color: rgba(74,44,16,.72); font: 800 9px/1.3 'Segoe UI', sans-serif; letter-spacing: .13em; text-align: right; text-transform: uppercase; }
+    .bn-file { color: rgba(74,44,16,.72); font: 800 9px/1.3 var(--font-ui); letter-spacing: .13em; text-align: right; text-transform: uppercase; }
     .bn-order {
       margin: 3px 0 13px; padding-bottom: 11px; border-bottom: 2px solid rgba(84,48,16,.5);
-      color: rgba(74,44,16,.9); font: 800 10px/1.3 'Segoe UI', sans-serif; letter-spacing: .16em; text-transform: uppercase;
+      color: rgba(74,44,16,.9); font: 800 10px/1.3 var(--font-ui); letter-spacing: .16em; text-transform: uppercase;
     }
 
     .bn-main { display: grid; grid-template-columns: 190px 1fr; gap: 20px; align-items: start; }
@@ -59,24 +59,24 @@ function injectStyles() {
     .bn-shot-tag {
       position: absolute; left: 0; right: 0; bottom: 0; padding: 3px 0;
       background: rgba(20,10,3,.68); color: rgba(240,226,198,.86);
-      font: 800 8px/1.3 'Segoe UI', sans-serif; letter-spacing: .16em; text-align: center; text-transform: uppercase;
+      font: 800 8px/1.3 var(--font-ui); letter-spacing: .16em; text-align: center; text-transform: uppercase;
     }
 
-    .bn-target { color: #2a1508; font: 900 clamp(26px, 3.4vw, 40px)/1 'Segoe UI', sans-serif; letter-spacing: .03em; text-transform: uppercase; }
+    .bn-target { color: #2a1508; font: 800 clamp(28px, 3.8vw, 46px)/.95 var(--font-display); letter-spacing: 0; text-transform: uppercase; }
     .bn-alias { margin-top: 5px; color: rgba(74,44,16,.78); font: italic 600 14px/1.3 Georgia, 'Times New Roman', serif; }
-    .bn-label { margin: 15px 0 6px; color: rgba(74,44,16,.66); font: 800 9px/1 'Segoe UI', sans-serif; letter-spacing: .17em; text-transform: uppercase; }
+    .bn-label { margin: 15px 0 6px; color: rgba(74,44,16,.66); font: 800 9px/1 var(--font-ui); letter-spacing: .17em; text-transform: uppercase; }
     .bn-charges { display: grid; gap: 6px; }
     .bn-charges li { display: flex; gap: 8px; color: #33200f; font: 500 14px/1.5 Georgia, 'Times New Roman', serif; }
     .bn-charges li::before { content: '—'; color: rgba(84,48,16,.6); }
 
     .bn-hazards { display: grid; gap: 6px; margin-top: 13px; }
     .bn-hazard { display: flex; align-items: baseline; gap: 9px; padding: 7px 9px; background: rgba(159,18,57,.09); border-left: 3px solid #9f1239; }
-    .bn-hz-label { flex: none; color: #9f1239; font: 900 9px/1.4 'Segoe UI', sans-serif; letter-spacing: .13em; }
-    .bn-hz-detail { color: rgba(48,28,10,.9); font: 600 12px/1.45 'Segoe UI', sans-serif; }
+    .bn-hz-label { flex: none; color: #9f1239; font: 900 9px/1.4 var(--font-ui); letter-spacing: .13em; }
+    .bn-hz-detail { color: rgba(48,28,10,.9); font: 600 12px/1.45 var(--font-ui); }
 
     .bn-stats { display: flex; gap: 26px; margin-top: 15px; padding-top: 12px; border-top: 1px solid rgba(84,48,16,.34); }
-    .bn-stat-label { color: rgba(74,44,16,.6); font: 800 8px/1 'Segoe UI', sans-serif; letter-spacing: .15em; text-transform: uppercase; }
-    .bn-stat-value { margin-top: 4px; color: #2a1508; font: 900 19px/1 'Segoe UI', sans-serif; }
+    .bn-stat-label { color: rgba(74,44,16,.6); font: 800 8px/1 var(--font-ui); letter-spacing: .15em; text-transform: uppercase; }
+    .bn-stat-value { margin-top: 4px; color: #2a1508; font: 800 22px/1 var(--font-display); }
     .bn-stat-value.reward { color: #9f1239; }
 
     .bn-note {
@@ -86,7 +86,7 @@ function injectStyles() {
     .bn-action {
       display: block; width: 100%; margin-top: 16px; padding: 13px 16px; cursor: pointer;
       border: 1px solid rgba(84,48,16,.6); background: rgba(159,18,57,.12); color: #7f1d3a;
-      font: 900 11px/1 'Segoe UI', sans-serif; letter-spacing: .16em; text-transform: uppercase;
+      font: 900 11px/1 var(--font-ui); letter-spacing: .16em; text-transform: uppercase;
     }
     .bn-action:hover { background: rgba(159,18,57,.22); border-color: #9f1239; color: #9f1239; }
 

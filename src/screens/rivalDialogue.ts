@@ -19,18 +19,18 @@ function injectStyles() {
     .rival-dialogue .db-header { padding: 14px 18px 0; }
     .rival-dialogue .db-speaker {
       color: #fda4af;
-      font: 800 10px/1.2 'Segoe UI', sans-serif;
+      font: 800 10px/1.2 var(--font-ui);
       letter-spacing: .18em;
     }
     .rival-dialogue .db-text {
       padding: 10px 18px 14px;
       color: #fff1f2;
-      font: 600 17px/1.48 'Segoe UI', sans-serif;
+      font: 600 17px/1.48 var(--font-ui);
       letter-spacing: 0;
     }
     .rival-dialogue .db-prompt {
       color: rgba(254,205,211,0.54);
-      font: 700 10px/1 'Segoe UI', sans-serif;
+      font: 700 10px/1 var(--font-ui);
       letter-spacing: .14em;
     }
     @media (max-width: 640px) {

@@ -1,3 +1,4 @@
+import './fonts.css'
 import { showTitle } from './title.js'
 import { initPauseMenu } from './screens/pauseMenu.js'
 import { showRewardScreen } from './screens/rewardScreen.js'
