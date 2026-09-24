@@ -12,44 +12,33 @@ export interface ArenaProfile {
   dust: number
   fog: number
   light: number
+  candyA: number   // hard-candy shards scattered round the arena
+  candyB: number
+  post: number     // lamp posts / shelf uprights
 }
 
+// Candy-aisle glow: night-lit, but lit — deep saturated floors instead of the
+// old near-black void, and each doctrine's aisle stocked with its own candy.
 const ARENAS: Record<ArenaKind, Omit<ArenaProfile, 'kind'>> = {
   'wrapper-archive': {
     label: 'WRAPPER ARCHIVE',
-    floor: 0x111022,
-    grid: 0x4c3b78,
-    ring: 0xc4b5fd,
-    dust: 0xe9d5ff,
-    fog: 0x0c0a1a,
-    light: 0x8b5cf6,
+    floor: 0x1b1433, grid: 0x7b62c9, ring: 0xd8c8ff, dust: 0xf0e4ff, fog: 0x1c1436, light: 0xa47cff,
+    candyA: 0xb57bff, candyB: 0xff7ac6, post: 0xe9ddff,   // grape, strawberry, foil
   },
   'press-floor': {
     label: 'THE PRESS FLOOR',
-    floor: 0x24102f,
-    grid: 0x2d91b4,
-    ring: 0xffd43b,
-    dust: 0xff9fca,
-    fog: 0x13091b,
-    light: 0xff4f9a,
+    floor: 0x26112a, grid: 0x3fb4d8, ring: 0xffd43b, dust: 0xffb8d9, fog: 0x2a1030, light: 0xff5fa8,
+    candyA: 0xffb13b, candyB: 0xff4f7a, post: 0xffe6a8,   // butterscotch, cherry, brass
   },
   'syrup-works': {
     label: 'SYRUP WORKS',
-    floor: 0x07152e,
-    grid: 0xa83282,
-    ring: 0x48e6df,
-    dust: 0xffd85c,
-    fog: 0x030a18,
-    light: 0xff4f9a,
+    floor: 0x0a1934, grid: 0xc4459c, ring: 0x5ef0e6, dust: 0xffe27a, fog: 0x0c1c38, light: 0xff5fa8,
+    candyA: 0x3fe0d0, candyB: 0xffd24a, post: 0xbff7f2,   // mint, honey, glass
   },
   'original-shelf': {
     label: 'THE ORIGINAL SHELF',
-    floor: 0x11091d,
-    grid: 0x574078,
-    ring: 0xc4b5fd,
-    dust: 0xddd6fe,
-    fog: 0x0b0613,
-    light: 0x8b5cf6,
+    floor: 0x180e27, grid: 0x7b5ba8, ring: 0xd6c8ff, dust: 0xeee8ff, fog: 0x1a0e2c, light: 0xa47cff,
+    candyA: 0xc9b6ff, candyB: 0xf5f0ff, post: 0xece6ff,   // pale, pristine — the Original's stock
   },
 }
 
@@ -154,7 +143,7 @@ export function createArenaDressing(scene: THREE.Scene): ArenaDressing {
   function buildWrapperArchive(profile: ArenaProfile) {
     const wrapper = material(0x513c82, { metalness: 0.58, roughness: 0.26, emissive: 0x513c82 })
     const foil = material(profile.ring, { metalness: 0.92, roughness: 0.14, emissive: profile.ring })
-    const seal = material(0x201632, { metalness: 0.4, roughness: 0.35 })
+    const seal = material(profile.post, { metalness: 0.7, roughness: 0.28 })
     const packageGeo = new THREE.BoxGeometry(0.92, 0.38, 0.22)
     const crimpGeo = new THREE.ConeGeometry(0.12, 0.26, 4)
     practical(profile.light, [-4.2, 2.0, -3.0], 1.45, 5.5)
@@ -171,7 +160,9 @@ export function createArenaDressing(scene: THREE.Scene): ArenaDressing {
       }
     }
 
-    const rail = mesh(new THREE.BoxGeometry(8.8, 0.1, 0.1), basic(profile.ring, 0.9), [0, 2.35, -4.15])
+    // Lit foil, not an unlit MeshBasic bar: at 90% flat brightness it was the
+    // brightest thing on screen and read as a UI glitch floating over the fight.
+    const rail = mesh(new THREE.BoxGeometry(8.8, 0.09, 0.09), foil, [0, 2.35, -4.15])
     motion(rail, 'y', 2.35, 0.7, 0.045)
     for (const x of [-3.2, -1.1, 1.1, 3.2]) {
       mesh(new THREE.BoxGeometry(0.06, 1.9, 0.06), seal, [x, 1.2, -4.1])

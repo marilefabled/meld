@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
 import { createTimers } from './engine/timer.js'
 import { createShake } from './engine/shake.js'
 import { createDeck } from './engine/deck.js'
@@ -56,33 +57,41 @@ export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom 
   document.body.prepend(renderer.domElement)
 
   const scene = new THREE.Scene()
+  // Studio reflections. Every unit is glossy PBR (roughness .12-.28, accents at
+  // metalness .65) but there was no environment to reflect, so metal read black
+  // and gloss showed only as pinpricks. This is the "bright plastic" in one line.
+  const pmrem = new THREE.PMREMGenerator(renderer)
+  const envMap = pmrem.fromScene(new RoomEnvironment(), 0.04).texture
+  scene.environment = envMap
+  scene.environmentIntensity = 0.3
 
-  // ── Per-run backdrops — each loop of three has its own mood, and the Mirror
-  // (finale) its own. Drives sky, fog, dust, ambient light and the floor rings,
-  // so the three runs feel like descending deeper into yourself. ────────────────
+  // ── Per-run backdrops — each bag is a deeper aisle of the Candy Court, and the
+  // Mirror (finale) its own shelf. Drives the sky glow, fog, dust, ambient light
+  // and the floor rings. Night-lit, but lit: a warm horizon glow over a saturated
+  // aisle, escalating in heat bag by bag. ─────────────────────────────────────────
   type Backdrop = {
     zenith: [number, number, number]; horizon: [number, number, number]
     fog: number; fogDensity: number; dust: number; ambient: number
     ring1: number; ring2: number; bg: number
   }
   const RUN_THEMES: Backdrop[] = [
-    { // Run 1 — the surface: cool indigo twilight, calm and open
-      zenith: [0.015, 0.010, 0.060], horizon: [0.075, 0.055, 0.200],
-      fog: 0x0e0a22, fogDensity: 0.040, dust: 0x8a9ce0, ambient: 0x4466aa,
-      ring1: 0x3b3a96, ring2: 0x5b50c9, bg: 0x02010a },
-    { // Run 2 — the deep: warmer plum and amber, turbulent and denser
-      zenith: [0.045, 0.014, 0.048], horizon: [0.185, 0.075, 0.110],
-      fog: 0x1a0a16, fogDensity: 0.050, dust: 0xd6a86a, ambient: 0x8a5a44,
-      ring1: 0x7a2d6d, ring2: 0xb1452f, bg: 0x0a0306 },
-    { // Run 3 — the depths: oppressive crimson-violet, hot and close
-      zenith: [0.034, 0.005, 0.022], horizon: [0.205, 0.035, 0.120],
-      fog: 0x180512, fogDensity: 0.058, dust: 0xff6a8a, ambient: 0x7a3050,
-      ring1: 0x8a1d3d, ring2: 0xb01030, bg: 0x08020a },
+    { // Bag 1 — grape-violet night, calm and open
+      zenith: [0.035, 0.024, 0.110], horizon: [0.300, 0.140, 0.420],
+      fog: 0x1c1436, fogDensity: 0.028, dust: 0x9fb0f0, ambient: 0x7788cc,
+      ring1: 0x6a5ad0, ring2: 0x8b7cff, bg: 0x0a0718 },
+    { // Bag 2 — strawberry and amber, warmer and busier
+      zenith: [0.070, 0.024, 0.080], horizon: [0.420, 0.170, 0.240],
+      fog: 0x2a1030, fogDensity: 0.032, dust: 0xffc48a, ambient: 0xb07a66,
+      ring1: 0xb04a9a, ring2: 0xe0643f, bg: 0x140610 },
+    { // Bag 3 — hot raspberry, close and loud
+      zenith: [0.060, 0.012, 0.050], horizon: [0.440, 0.090, 0.200],
+      fog: 0x2a0c22, fogDensity: 0.036, dust: 0xff8aa8, ambient: 0xa04a6a,
+      ring1: 0xc02a5a, ring2: 0xf0345a, bg: 0x12040e },
   ]
-  const MIRROR_THEME: Backdrop = { // the Meld — pale luminous violet, the whole self
-    zenith: [0.020, 0.012, 0.055], horizon: [0.150, 0.105, 0.270],
-    fog: 0x140a26, fogDensity: 0.044, dust: 0xc4b5fd, ambient: 0x6a55b0,
-    ring1: 0xa78bfa, ring2: 0x7c3aed, bg: 0x05030f }
+  const MIRROR_THEME: Backdrop = { // the Original's shelf — pale luminous violet
+    zenith: [0.040, 0.030, 0.100], horizon: [0.300, 0.220, 0.520],
+    fog: 0x1a0e2c, fogDensity: 0.030, dust: 0xd6c8ff, ambient: 0x8a78d0,
+    ring1: 0xb9a0ff, ring2: 0x8b5cf6, bg: 0x0c0818 }
   const theme: Backdrop = isFinale ? MIRROR_THEME : (RUN_THEMES[Math.min(Math.max(runNumber, 0), 2)] ?? RUN_THEMES[0])
 
   scene.background = new THREE.Color(theme.bg)
@@ -175,8 +184,11 @@ export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom 
   })
 
   // ── Lighting ────────────────────────────────────────────────────────────
-  const ambient = new THREE.AmbientLight(theme.ambient, 0.6)
+  const ambient = new THREE.AmbientLight(theme.ambient, 0.35)
   scene.add(ambient)
+  // Sky/ground bounce so props read as shapes, not silhouettes against the fog.
+  const bounce = new THREE.HemisphereLight(0xffe4f4, 0x2a1f4a, 0.38)
+  scene.add(bounce)
 
   const sun = new THREE.DirectionalLight(0xffeedd, 1.8)
   sun.position.set(4, 8, 3)
@@ -197,7 +209,8 @@ export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom 
 
   // ── Arena floor ─────────────────────────────────────────────────────────
   const floorGeo = new THREE.PlaneGeometry(20, 16)
-  const floorMat = new THREE.MeshStandardMaterial({ color: 0x0d0b16, roughness: 0.97, metalness: 0.0 })
+  // Polished aisle floor: soft reflections of the lights instead of a matte void.
+  const floorMat = new THREE.MeshStandardMaterial({ color: 0x2a1f4a, roughness: 0.42, metalness: 0.1 })
   const floor = new THREE.Mesh(floorGeo, floorMat)
   floor.rotation.x = -Math.PI / 2
   floor.receiveShadow = true
@@ -229,8 +242,9 @@ export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom 
   scene.add(enemyFloorLight)
 
   // ── Rocks ───────────────────────────────────────────────────────────────
-  const rockMatA = new THREE.MeshStandardMaterial({ color: 0x1c1428, roughness: 0.93, metalness: 0.04 })
-  const rockMatB = new THREE.MeshStandardMaterial({ color: 0x271840, roughness: 0.88, metalness: 0.08 })
+  // Hard-candy shards (were matte void rocks) — glossy, faintly lit from within.
+  const rockMatA = new THREE.MeshStandardMaterial({ color: 0xb57bff, roughness: 0.16, metalness: 0.0, emissive: 0xb57bff, emissiveIntensity: 0.22 })
+  const rockMatB = new THREE.MeshStandardMaterial({ color: 0xff7ac6, roughness: 0.16, metalness: 0.0, emissive: 0xff7ac6, emissiveIntensity: 0.22 })
   const rocks: { mesh: THREE.Mesh; baseY: number; phase: number; bob: number; spin: number }[] = []
   function mkRock(x: number, z: number, s: number, ry: number, mat: THREE.MeshStandardMaterial) {
     const m = new THREE.Mesh(new THREE.IcosahedronGeometry(s, 0), mat)
@@ -258,7 +272,7 @@ export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom 
   mkRock( 5.5,  2.8, 0.42, 1.8,  rockMatA)
 
   // ── Pillars ─────────────────────────────────────────────────────────────
-  const pillarMat = new THREE.MeshStandardMaterial({ color: 0x17102a, roughness: 0.92 })
+  const pillarMat = new THREE.MeshStandardMaterial({ color: 0xe9ddff, roughness: 0.3, metalness: 0.55 })
   const pillarLights: THREE.PointLight[] = []
   function mkPillar(x: number, z: number, h: number) {
     const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.17, h, 6), pillarMat)
@@ -357,9 +371,10 @@ export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom 
     const profile = arenaForEncounter(def, isFinale)
     floorMat.color.setHex(profile.floor)
     gridMat.color.setHex(profile.grid)
-    rockMatA.color.setHex(profile.fog)
-    rockMatB.color.setHex(profile.grid)
-    pillarMat.color.setHex(profile.fog)
+    rockMatA.color.setHex(profile.candyA); rockMatA.emissive.setHex(profile.candyA)
+    rockMatB.color.setHex(profile.candyB); rockMatB.emissive.setHex(profile.candyB)
+    pillarMat.color.setHex(profile.post)
+    bounce.groundColor.setHex(profile.floor)
     aRing1.mat.color.setHex(profile.ring)
     aRing2.mat.color.setHex(profile.light)
     dustMat.color.setHex(profile.dust)
@@ -2404,6 +2419,8 @@ export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom 
   function dispose() {
     cancelAnimationFrame(_frameId)
     arenaDressing.dispose()
+    envMap.dispose()
+    pmrem.dispose()
     renderer.dispose()
     renderer.domElement.remove()
     $holdSlots.remove()
