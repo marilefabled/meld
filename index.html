@@ -1629,6 +1629,26 @@
       text-transform: uppercase;
     }
 
+    /* Class select — three very different fruits sat in identical navy cards
+       with identical cyan labels. Each card now carries its fruit's colour. */
+    .cs-option {
+      border-color: color-mix(in srgb, var(--fc, #6366f1) 38%, transparent) !important;
+      background:
+        radial-gradient(110% 62% at 50% 16%, color-mix(in srgb, var(--fc, #6366f1) 28%, transparent), transparent 64%),
+        linear-gradient(168deg, rgba(25,27,52,0.84), rgba(10,11,24,0.9)) !important;
+    }
+    .cs-option::before {
+      background: linear-gradient(90deg, transparent, var(--fc, #aab4ff), transparent) !important;
+      left: 14% !important; right: 14% !important; opacity: .85;
+    }
+    .cs-option:hover {
+      border-color: color-mix(in srgb, var(--fc, #6366f1) 82%, white) !important;
+      box-shadow: 0 18px 46px rgba(0,0,0,.5), 0 0 44px -8px var(--fc, #6366f1),
+                  inset 0 1px 0 rgba(255,255,255,.12) !important;
+    }
+    .cs-role    { color: color-mix(in srgb, var(--fc, #67e8f9) 50%, white) !important; }
+    .cs-preview { color: color-mix(in srgb, var(--fc, #a5b4fc) 28%, #e2e8f0) !important; }
+
     /* Flash banner: was pinned at left:50% with no width, so long lines could
        only use the right half of the screen and wrapped left-aligned. */
     #banner {

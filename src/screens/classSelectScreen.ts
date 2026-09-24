@@ -20,7 +20,7 @@ export function showClassSelect({ mode = 'returning' }: { mode?: 'first-run' | '
         ${classes.map(cls => {
           const cfg  = CLASS_CONFIGS[cls]
           return `
-            <button class="cs-option" data-cls="${cls}">
+            <button class="cs-option" data-cls="${cls}" style="--fc:#${cfg.bodyColor.toString(16).padStart(6, '0')}; --fa:#${cfg.accentColor.toString(16).padStart(6, '0')}">
               <div class="cs-unit-preview" data-unit-preview="${cls}" aria-hidden="true"></div>
               <div class="cs-name">${cfg.displayName.toUpperCase()}</div>
               <div class="cs-role">${cfg.role}</div>

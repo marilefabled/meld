@@ -39,8 +39,22 @@ export function createUnitPreview(
   unit.group.rotation.y = 0.34
   scene.add(unit.group)
 
-  const floorMat = new THREE.MeshBasicMaterial({ color: options.accentColor, transparent: true, opacity: 0.15, depthWrite: false })
-  const floor = new THREE.Mesh(new THREE.CircleGeometry(0.82, 32), floorMat)
+  // A soft pool of the unit's own colour, not a hard-edged disk: at a flat 15%
+  // alpha the old disk read as a grey placeholder pill under every fruit.
+  const glow = document.createElement('canvas')
+  glow.width = glow.height = 64
+  const g = glow.getContext('2d')!
+  const grad = g.createRadialGradient(32, 32, 0, 32, 32, 32)
+  grad.addColorStop(0, 'rgba(255,255,255,0.9)')
+  grad.addColorStop(0.45, 'rgba(255,255,255,0.35)')
+  grad.addColorStop(1, 'rgba(255,255,255,0)')
+  g.fillStyle = grad
+  g.fillRect(0, 0, 64, 64)
+  const glowTex = new THREE.CanvasTexture(glow)
+  const floorMat = new THREE.MeshBasicMaterial({
+    color: options.bodyColor, map: glowTex, transparent: true, opacity: 0.55, depthWrite: false,
+  })
+  const floor = new THREE.Mesh(new THREE.CircleGeometry(0.9, 32), floorMat)
   floor.rotation.x = -Math.PI / 2
   floor.position.y = 0.015
   scene.add(floor)
@@ -95,6 +109,7 @@ export function createUnitPreview(
       })
       geometries.forEach(geometry => geometry.dispose())
       materials.forEach(material => material.dispose())
+      glowTex.dispose()
       renderer.dispose()
       renderer.domElement.remove()
     },
