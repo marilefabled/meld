@@ -171,6 +171,7 @@ export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom 
     camera.aspect = innerWidth / innerHeight
     camera.updateProjectionMatrix()
     renderer.setSize(innerWidth, innerHeight)
+    syncLayout()
   })
 
   // ── Lighting ────────────────────────────────────────────────────────────
@@ -471,6 +472,29 @@ export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom 
   $holdSlots.id = 'hold-slots'
   $holdSlots.setAttribute('aria-label', 'Held card memory slots')
   document.body.appendChild($holdSlots)
+
+  // ── Layout sync ──────────────────────────────────────────────────────────
+  // The tray above the hand (hold slots, AP, bonus note) used fixed pixel
+  // offsets, so it collided with the cards whenever they grew MELD/HOLD buttons.
+  // It now stacks off the hand's measured height (--hand-h), and cards narrow
+  // as the hand grows (--n) so bonus draws can't push them off-screen.
+  //
+  // Short landscape screens (phones) leave only a thin band between the top HUD
+  // and that tray, so the rendered view shifts up to centre the fight in it.
+  function syncLayout() {
+    $hand.style.setProperty('--n', String(Math.max(deck?.hand.length ?? 4, 1)))
+    document.documentElement.style.setProperty('--hand-h', `${$hand.offsetHeight}px`)
+    const h = innerHeight
+    if (h <= 540 && innerWidth > h) {
+      const hudBottom = Math.max(0, ...[...document.querySelectorAll('#hud .hud-col')]
+        .map(e => e.getBoundingClientRect().bottom))
+      const trayTop = Math.min($energy.getBoundingClientRect().top, $holdSlots.getBoundingClientRect().top)
+      const bandCentre = (hudBottom + trayTop) / 2
+      camera.setViewOffset(innerWidth, h, 0, Math.max(0, Math.round(h / 2 - bandCentre)), innerWidth, h)
+    } else {
+      camera.clearViewOffset()
+    }
+  }
 
   // ── Encounter state ──────────────────────────────────────────────────────
   let ENEMY_MOVES: EnemyMove[] = []
@@ -1068,7 +1092,9 @@ export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom 
           const canAfford = energy >= meldCost && (!tutorialGate || tutorialTarget)
           const btn = document.createElement('button')
           btn.className = 'merge-btn'
-          btn.textContent = tutorialTarget ? `FUSE FIRST (${meldCost}⚡)` : `⬆ MELD (${meldCost}⚡)`
+          btn.innerHTML = tutorialTarget
+            ? `<span class="lbl-full">FUSE FIRST (${meldCost}⚡)</span><span class="lbl-short">FUSE ${meldCost}⚡</span>`
+            : `<span class="lbl-full">⬆ MELD (${meldCost}⚡)</span><span class="lbl-short">MELD ${meldCost}⚡</span>`
           btn.disabled = !canAfford
           btn.addEventListener('click', e => { e.stopPropagation(); doMerge(card) })
           el.appendChild(btn)
@@ -1076,7 +1102,9 @@ export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom 
         if (canToggleThisHold) {
           const hbtn = document.createElement('button')
           hbtn.className = 'hold-btn'
-          hbtn.textContent = isHeld ? '📌 RELEASE' : '📌 HOLD'
+          hbtn.innerHTML = isHeld
+            ? '<span class="lbl-full">📌 RELEASE</span><span class="lbl-short">RELEASE</span>'
+            : '<span class="lbl-full">📌 HOLD</span><span class="lbl-short">HOLD</span>'
           hbtn.addEventListener('click', e => { e.stopPropagation(); toggleHold(card) })
           el.appendChild(hbtn)
         }
@@ -1100,6 +1128,7 @@ export function startBattle({ playerClass = 'warrior' as PlayerClass, startFrom 
     updateHUD()
     updateHoldSlots()
     updateEndTurnButton(tutorialGate)
+    syncLayout()
   }
 
   // ── Animations ──────────────────────────────────────────────────────────

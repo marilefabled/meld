@@ -359,7 +359,7 @@
     #hand.dimmed { opacity: .2; pointer-events: none; }
 
     #hold-slots {
-      position: fixed; bottom: calc(170px + var(--safe-bottom)); left: 50%; transform: translateX(-50%);
+      position: fixed; bottom: calc(18px + var(--safe-bottom) + var(--hand-h, 150px) + 6px); left: 50%; transform: translateX(-50%);
       z-index: 10; display: flex; gap: 8px; pointer-events: none;
     }
     .hold-slot {
@@ -387,7 +387,7 @@
     }
 
     .card {
-      width: 116px; padding: 0 7px 8px;
+      width: clamp(84px, calc((100vw - 340px) / var(--n, 4) - 10px), 116px); padding: 0 7px 8px;
       background: linear-gradient(180deg, rgba(20,20,42,0.96), rgba(10,10,22,0.98));
       border: 1px solid color-mix(in srgb, var(--cc,#6366f1) 45%, rgba(120,140,255,0.22));
       border-radius: 12px; color: #e0e7ff; overflow: hidden;
@@ -548,7 +548,7 @@
 
     /* ── Energy pips ──────────────────────────────────────────── */
     #energy {
-      position: fixed; bottom: calc(212px + var(--safe-bottom)); left: 50%; transform: translateX(-50%);
+      position: fixed; bottom: calc(18px + var(--safe-bottom) + var(--hand-h, 150px) + 50px); left: 50%; transform: translateX(-50%);
       display: flex; align-items: center; gap: 10px; z-index: 10;
     }
     .energy-pip {
@@ -565,7 +565,7 @@
 
     /* ── AP bonus indicator ───────────────────────────────────── */
     #ap-bonus {
-      position: fixed; bottom: calc(196px + var(--safe-bottom)); left: 50%; transform: translateX(-50%);
+      position: fixed; bottom: calc(18px + var(--safe-bottom) + var(--hand-h, 150px) + 34px); left: 50%; transform: translateX(-50%);
       max-width: min(48vw, 460px); font: bold 11px/1 var(--font-ui); color: #6ee7b7; z-index: 10;
       opacity: 0; transition: opacity .3s; text-align: center;
     }
@@ -1543,19 +1543,76 @@
     @media (pointer: coarse) and (max-width: 900px) and (orientation: portrait) {
       body.game-active #ios-landscape-lock { display: flex; }
     }
-    @media (pointer: coarse) and (max-height: 540px) and (orientation: landscape) {
-      .hud-col { padding: 7px 10px; gap: 4px; }
-      .hp-bar-bg { width: min(21vw, 180px); }
-      #enemy-intent .intent-stack { max-width: min(280px, 34vw); }
-      #hand { bottom: calc(8px + var(--safe-bottom)); gap: 8px; }
-      .card { width: min(13.8vw, 116px); padding-bottom: 7px; }
-      .card-art { height: 58px; }
-      .merge-btn, .hold-btn { min-height: 34px; padding: 6px 0; }
-      #hold-slots { bottom: calc(166px + var(--safe-bottom)); }
-      #energy { bottom: calc(208px + var(--safe-bottom)); }
-      #ap-bonus { bottom: calc(187px + var(--safe-bottom)); font-size: 10px; }
-      #deck-info { bottom: calc(16px + var(--safe-bottom)); left: calc(16px + var(--safe-left)); font-size: 11px; }
-      #end-turn { min-height: 44px; bottom: calc(12px + var(--safe-bottom)); right: calc(16px + var(--safe-right)); padding: 0 16px; }
+    .lbl-short { display: none; }
+
+    /* ── Short landscape (phones) ─────────────────────────────────────────
+       844x390 is the PWA's real target. The old layout gave the hand 47% of
+       the height and the enemy panel 44% of the width, so the fight itself was
+       a sliver behind the AP row. Here: a slim one-line HUD, compact cards with
+       MELD/HOLD side by side, and battle.ts reframes the camera into the band
+       that's left (syncLayout). Keyed on size, not pointer type, so a short
+       laptop window gets it too. */
+    @media (max-height: 540px) and (orientation: landscape) {
+      #hud { padding: calc(6px + var(--safe-top)) calc(10px + var(--safe-right)) 6px calc(60px + var(--safe-left)); }
+      .hud-col { padding: 5px 10px; gap: 3px; border-radius: 10px; }
+      .hp-row { gap: 6px; font-size: 12px; }
+      .hp-bar-bg { width: min(17vw, 150px); height: 8px; }
+      .hp-text { min-width: 40px; font-size: 10px; }
+      #encounter-info, #enemy-intent .intent-label, #enemy-intent .intent-hint { display: none; }
+      .hud-col.hud-e {
+        display: grid; grid-template-columns: auto auto; column-gap: 10px; row-gap: 3px;
+        align-items: center; justify-items: end;
+      }
+      .hud-e #enemy-intent { grid-column: 1; grid-row: 1 / span 2; }
+      .hud-e .hp-row       { grid-column: 2; grid-row: 1; }
+      .hud-e .status-row   { grid-column: 2; grid-row: 2; }
+      #enemy-intent .intent-chip  { padding: 4px 9px 4px 5px; gap: 6px; border-radius: 10px; }
+      #enemy-intent .intent-glyph { width: 20px; height: 20px; }
+      #enemy-intent .intent-name  { font-size: 12px; }
+      #turn-counter {
+        top: auto; bottom: calc(28px + var(--safe-bottom)); left: calc(12px + var(--safe-left));
+        transform: none; font-size: 9px;
+      }
+
+      #hand { bottom: calc(6px + var(--safe-bottom)); gap: 6px; }
+      .card {
+        width: clamp(72px, calc((100vw - 300px - var(--safe-left) - var(--safe-right)) / var(--n, 4) - 6px), 112px);
+        padding: 0 5px 5px; border-radius: 10px;
+        display: flex; flex-wrap: wrap; justify-content: center; column-gap: 4px;
+      }
+      .card > .card-art, .card > .name, .card > .desc { flex-basis: 100%; }
+      .card-art { height: 40px; margin: 0 -5px 4px; }
+      .card-glyph { width: 30px; height: 30px; }
+      .card .name { font-size: 11px; margin: 0 0 1px; }
+      .card .desc { font-size: 9.5px; line-height: 1.2; }
+      .card-gem   { top: 4px; left: 5px; font-size: 9px; padding: 2px 4px; }
+      .tier-badge { top: 4px; right: 6px; font-size: 9px; }
+      .card:hover { transform: translateY(-8px); }
+      .merge-btn, .hold-btn {
+        flex: 1 1 0; min-width: 0; margin-top: 4px; min-height: 28px; padding: 0 2px;
+        font-size: 9px; letter-spacing: 0; white-space: nowrap;
+      }
+      .lbl-full  { display: none; }
+      .lbl-short { display: inline; }
+
+      /* tray: hold slots hug the hand; AP left of centre, the bonus note right */
+      #hold-slots { bottom: calc(6px + var(--safe-bottom) + var(--hand-h, 110px) + 4px); gap: 6px; }
+      .hold-slot  { width: 74px; height: 18px; }
+      #energy {
+        bottom: calc(6px + var(--safe-bottom) + var(--hand-h, 110px) + 27px);
+        transform: translateX(calc(-100% - 10px)); gap: 7px;
+      }
+      .energy-pip { width: 11px; height: 11px; }
+      #ap-bonus {
+        bottom: calc(6px + var(--safe-bottom) + var(--hand-h, 110px) + 28px);
+        transform: translateX(10px); text-align: left; font-size: 10px;
+        max-width: 36vw; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      }
+      #deck-info { bottom: calc(10px + var(--safe-bottom)); left: calc(12px + var(--safe-left)); font-size: 10px; }
+      #end-turn {
+        min-height: 44px; bottom: calc(8px + var(--safe-bottom)); right: calc(12px + var(--safe-right));
+        padding: 0 14px; font-size: 12px; max-width: 132px;
+      }
     }
     /* ── Display voice ─────────────────────────────────────────────────────
        Headlines speak in the Fruit Front's poster voice (see src/fonts.css).

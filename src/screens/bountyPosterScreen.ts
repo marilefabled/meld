@@ -99,6 +99,28 @@ function injectStyles() {
       .bn-note { font-size: 12.5px; }
       .bn-stats { gap: 18px; }
     }
+    /* Landscape phones are ~844 wide, so the width rule above never fires there —
+       the poster overflowed its 390px viewport and scrolled, hiding the WANTED
+       header behind the button you had to scroll to. Fit it in one screen. */
+    @media (max-height: 540px) and (orientation: landscape) {
+      .bounty-overlay { padding: 8px; }
+      .bounty { width: min(96vw, 820px); max-height: calc(100vh - 16px); padding: 11px 18px 11px; }
+      .bn-wanted { font-size: 26px; }
+      .bn-order { margin: 2px 0 7px; padding-bottom: 6px; font-size: 8.5px; }
+      .bn-main { grid-template-columns: 124px 1fr; gap: 14px; }
+      .bn-target { font-size: 26px; }
+      .bn-alias { margin-top: 2px; font-size: 12px; }
+      .bn-label { margin: 7px 0 3px; }
+      .bn-charges { gap: 2px; }
+      .bn-charges li { font-size: 12px; line-height: 1.35; }
+      .bn-hazards { margin-top: 6px; gap: 4px; }
+      .bn-hazard { padding: 4px 8px; }
+      .bn-hz-detail { font-size: 11px; }
+      .bn-stats { margin-top: 7px; padding-top: 6px; gap: 20px; }
+      .bn-stat-value { font-size: 18px; }
+      .bn-note { margin-top: 7px; padding: 6px 10px; font-size: 12px; line-height: 1.4; }
+      .bn-action { margin-top: 7px; padding: 10px 14px; }
+    }
   `
   document.head.appendChild(style)
 }
